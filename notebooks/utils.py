@@ -27,7 +27,6 @@ def get_text_from_transcript(transcript):
                 full_text += f"{speaker}: {text}\n\n"
     return deduplicate_tags(full_text)
 
-
 def generate_temporal_context():
     """Generate temporal context for prompt."""
     locale.setlocale(locale.LC_TIME, "es_ES")
