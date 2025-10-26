@@ -50,36 +50,3 @@ def clinical_note_endpoint(payload: dict):
                 }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-# Simplest way to test is with get routes and print statements
-
-audio_url_test="https://ohio.stream-io-cdn.com/1433144/video/recordings/audio_room_1_dtxQ4PTcFRTweqGBx5TpN/rec_audio_room_1_dtxQ4PTcFRTweqGBx5TpN_audio_1760301883205.mp3?Expires=1761511570&Signature=b-j8vS6Q3bDkuPvLLhTqllXYddrBNNydJcc~MOsyDDhvr-zU-TRFNv4wmBKqkUNzLp5yOzfIBop4o12~H3DUbgSFAlKlrgZIr5ECtO6i0ycZn25qGwUpZF~O3r9auHeJ1NCy6VlwioPoX8UgdSgoy1vXapU0TuvPD0MXbtZc8ld7KI9WmBbn5~hpPIVdYjTFfx-FWHVVUXrbLw1BNKmkfwh3VhjYe8BAa2YIy~7BrJrs5LUyTmfYXIMMpijoO3Z4YFJ2x0m8OaQpnsDzBlaOe6qBioOcIMUzdO9PPAIGkndLvcqwLDkEv9QxNoXm4Z9Cw~aJlJgxTq2q-5EUIqNK4A__&Key-Pair-Id=APKAIHG36VEWPDULE23Q"
-
-@router.get("/test-transcribe")
-def test_transcribe():
-    try:
-        transcription = transcribe_audio(audio_url_test)
-        print("Transcription:", transcription)
-        return {"status": "success", "transcription": transcription}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
-# Example payload from a real transcription
-payload_test={"status":"success","transcription":"SpeakerA: Muy simple hecha por José para probar la API de transcription.\n\nSpeakerB: De transcripción en el servidor.\n\nSpeakerA: De Google Cloud.\n\n"}
-
-@router.get("/test-clinical-note")
-def test_clinical_note():
-    try:
-        clinical_note = generate_clinical_note(payload_test["transcription"], system_prompt)
-        print("Clinical Note:", clinical_note)
-        return {"status": "success", "clinical_note": clinical_note}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# EXAMPLE OUTPUT FROM TEST
-
-# {"status":"success","clinical_note":{"datos_personales":{},"motivo_consulta":"Muy simple hecha por José para probar la API de transcription.","enfermedad_actual":"No se documenta información clínica sobre inicio, evolución, síntomas, factores asociados, severidad, tratamientos previos ni respuesta en la transcripción disponible al 13/10/2025.","notas_calidad_datos":"La transcripción no contiene datos clínicos del paciente (edad, sexo, síntomas, signos, antecedentes, examen físico, diagnósticos ni plan). No es posible completar la nota clínica."}}
