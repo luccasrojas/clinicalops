@@ -1,0 +1,78 @@
+name: Deploy AWS Lambdas
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lambdas/**'   # Solo dispara si hay cambios en carpetas dentro de lambdas
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed Lambda folders
+        id: detect
+        run: |
+          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} \
+            | grep '^lambdas/' | cut -d'/' -f2 | sort | uniq)
+          echo "Changed lambdas: $CHANGED"
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::880140151067:role/GitHubActionRole
+          aws-region: us-east-1
+
+      - name: Deploy changed Lambdas
+        if: steps.detect.outputs.changed != ''
+        run: |
+          for lambda_dir in ${{ steps.detect.outputs.changed }}; do
+            echo "🚀 Deploying Lambda: $lambda_dir"
+            cd lambdas/$lambda_dir
+
+            # Crear carpeta temporal para dependencias
+            mkdir -p package
+
+            # Instalar dependencias (si hay)
+            if [ -f requirements.txt ]; then
+              pip install -r requirements.txt -t ./package
+            fi
+
+            # Copiar código fuente
+            cp -r *.py ./package/ 2>/dev/null || true
+
+            # Crear zip
+            cd package
+            zip -r ../function.zip .
+            cd ..
+
+            # Subir o crear función
+            FUNCTION_NAME=$lambda_dir
+            ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
+
+            if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
+              echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
+              aws lambda update-function-code \
+                --function-name $FUNCTION_NAME \
+                --zip-file fileb://function.zip
+            else
+              echo "🆕 Creating new Lambda: $FUNCTION_NAME"
+              aws lambda create-function \
+                --function-name $FUNCTION_NAME \
+                --runtime python3.11 \
+                --role $ROLE_ARN \
+                --handler lambda_function.lambda_handler \
+                --zip-file fileb://function.zip
+            fi
+
+            cd ../..
+          done
