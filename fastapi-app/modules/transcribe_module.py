@@ -7,7 +7,6 @@ import json
 from datetime import datetime
 import locale
 
-
 from data.prompt import system_prompt
 
 load_dotenv()
@@ -37,28 +36,28 @@ def transcribe_audio(audio_url):
 # CUIDADO: locale.setlocale puede no funcionar en todos los sistemas operativos
 # Failed to generate clinical note. Status: 500, Message: {"detail":"unsupported locale setting"}
 # Ver mas aqui https://chatgpt.com/share/68f3e430-fae4-8011-b3c3-f25f5a3f769e
-# def generate_temporal_context():
-#     locale.setlocale(locale.LC_TIME, "es_ES")
-#     hoy = datetime.now()
-#     dia_semana = hoy.strftime("%A")
-#     fecha = hoy.strftime("%d de %B de %Y %H:%M")
-#     return f"hoy es {dia_semana}, {fecha}."
+def generate_temporal_context():
+    locale.setlocale(locale.LC_TIME, "es_ES")
+    hoy = datetime.now()
+    dia_semana = hoy.strftime("%A")
+    fecha = hoy.strftime("%d de %B de %Y %H:%M")
+    return f"hoy es {dia_semana}, {fecha}."
 # NOTA: Alternativa sin usar locale con un brute force approach pero que funciona en todos los sistemas operativos
 # se puede mejorar luego si es necesario
-def generate_temporal_context():
-    meses = [
-        "enero", "febrero", "marzo", "abril", "mayo", "junio",
-        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
-    ]
-    dias = [
-        "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"
-    ]
+# def generate_temporal_context():
+#     meses = [
+#         "enero", "febrero", "marzo", "abril", "mayo", "junio",
+#         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+#     ]
+#     dias = [
+#         "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"
+#     ]
 
-    hoy = datetime.now()
-    dia_semana = dias[hoy.weekday()]
-    mes = meses[hoy.month - 1]
-    fecha = f"{hoy.day} de {mes} de {hoy.year} {hoy.strftime('%H:%M')}"
-    return f"hoy es {dia_semana}, {fecha}."
+#     hoy = datetime.now()
+#     dia_semana = dias[hoy.weekday()]
+#     mes = meses[hoy.month - 1]
+#     fecha = f"{hoy.day} de {mes} de {hoy.year} {hoy.strftime('%H:%M')}"
+#     return f"hoy es {dia_semana}, {fecha}."
 
 def generate_clinical_note(transcription, prompt, clinical_note_example):
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -95,9 +94,3 @@ def generate_clinical_note(transcription, prompt, clinical_note_example):
     print("Generated clinical note JSON:", json.dumps(data, indent=2, ensure_ascii=False))
 
     return data
-
-
-# audio_path=""    
-# transcription = transcribe_audio(audio_path)
-# histoiria_clinica = generate_historia_clinica(transcription, system_prompt)
-# histoiria_clinica
