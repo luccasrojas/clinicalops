@@ -24,7 +24,10 @@ jobs:
           CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} \
             | grep '^lambdas/' | cut -d'/' -f2 | sort | uniq)
           echo "Changed lambdas: $CHANGED"
-          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          echo "changed=${CHANGED}" >> $GITHUB_OUTPUT
+
+      - name: Debug changed output
+        run: echo "Changed output: ${{ steps.detect.outputs.changed }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -33,7 +36,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy changed Lambdas
-        if: steps.detect.outputs.changed != ''
+        if: ${{ steps.detect.outputs.changed }}
         run: |
           for lambda_dir in ${{ steps.detect.outputs.changed }}; do
             echo "🚀 Deploying Lambda: $lambda_dir"
