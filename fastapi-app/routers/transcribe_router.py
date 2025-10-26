@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from modules.transcribe_module import transcribe_audio, generate_clinical_note
-from data.prompt import system_prompt, default_clinical_note_example
+from data.prompts import SYSTEM_PROMPT, CLINICAL_NOTE_EXAMPLE
 import json
 
 router = APIRouter()
@@ -29,12 +29,12 @@ def clinical_note_endpoint(payload: dict):
     Expects: {"transcription": "... text ..."}
     """
     transcription = payload.get("transcription")
-    clinical_note_example = payload.get("clinical_note_example", default_clinical_note_example)
+    clinical_note_example = payload.get("clinical_note_example", CLINICAL_NOTE_EXAMPLE)
     if not transcription:
         raise HTTPException(status_code=400, detail="Missing 'transcription' in request body")
 
     try:
-        clinical_note = generate_clinical_note(transcription, system_prompt, clinical_note_example)
+        clinical_note = generate_clinical_note(transcription, SYSTEM_PROMPT, clinical_note_example)
         print("Clinical Note before returning in clinical_note_endpoint:", clinical_note)
 
         # Convert to an ordered string with pretty indentation and preserved accents
