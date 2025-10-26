@@ -21,16 +21,23 @@ jobs:
       - name: Detect changed Lambda folders
         id: detect
         run: |
-          CHANGED=$(
-            git diff --name-only ${{ github.event.before || 'HEAD^' }} ${{ github.sha }} \
-            | grep '^lambdas/' \
-            | cut -d'/' -f2 \
-            | sort \
-            | uniq
-          )
-  
+          BEFORE_SHA=${{ github.event.before }}
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]; then
+            echo "🔍 First commit detected. Taking all lambdas."
+            CHANGED=$(ls -d lambdas/*/ | cut -d'/' -f2)
+          else
+            CHANGED=$(
+              git diff --name-only $BEFORE_SHA ${{ github.sha }} \
+              | grep '^lambdas/' \
+              | cut -d'/' -f2 \
+              | sort \
+              | uniq
+            )
+          fi
+
           echo "Changed lambdas: $CHANGED"
           echo "changed=$(echo $CHANGED | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
