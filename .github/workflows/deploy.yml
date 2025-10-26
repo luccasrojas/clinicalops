@@ -26,9 +26,6 @@ jobs:
           echo "Changed lambdas: $CHANGED"
           echo "changed=${CHANGED}" >> $GITHUB_OUTPUT
 
-      - name: Debug changed output
-        run: echo "Changed output: ${{ steps.detect.outputs.changed }}"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
