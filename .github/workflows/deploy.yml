@@ -38,6 +38,17 @@ jobs:
           echo "Changed lambdas: $CHANGED"
           echo "changed=$(echo $CHANGED | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
+      - name: Debug detected changes
+        run: |
+          echo "Changed lambdas: ${{ steps.detect.outputs.changed }}"
+
+
+      - name: Debug info
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          echo "Changed: ${{ steps.detect.outputs.changed }}"
+          echo "Files in repo:"
+          ls -R lambdas || true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
