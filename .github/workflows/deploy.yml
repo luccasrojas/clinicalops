@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'lambdas/**'   # Solo dispara si hay cambios en carpetas dentro de lambdas
+      - 'lambdas/**'
 
 jobs:
   deploy:
@@ -15,19 +15,58 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout code
+      - name: Checkout code (full history)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # <<-- importante para poder comparar commits
 
       - name: Detect changed Lambda folders
         id: detect
+        shell: bash
         run: |
-          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} \
-            | grep '^lambdas/' | cut -d'/' -f2 | sort | uniq)
-          echo "Changed lambdas: $CHANGED"
-          echo "changed=${CHANGED}" >> $GITHUB_OUTPUT
+          # Obtiene la lista de archivos cambiados entre before y after
+          echo "GITHUB EVENT BEFORE: '${{ github.event.before }}'"
+          echo "GITHUB SHA: '${{ github.sha }}'"
+
+          # Si github.event.before es vacío o all-zero, detectar cambios contra HEAD~1
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE=$(git rev-parse HEAD^1 || echo "")
+          fi
+
+          # Hacemos diff; si BEFORE está vacío, listamos archivos del commit actual
+          if [ -n "$BEFORE" ]; then
+            CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" | grep '^lambdas/' | cut -d'/' -f2 | sort -u)
+          else
+            CHANGED=$(git show --name-only --pretty="" "${{ github.sha }}" | grep '^lambdas/' | cut -d'/' -f2 | sort -u)
+          fi
+
+          # Normalizar a una sola línea separada por newlines
+          if [ -z "$CHANGED" ]; then
+            echo "No lambda folders changed."
+          else
+            echo "Changed lambdas (one per line):"
+            echo "$CHANGED"
+          fi
+
+          # Exportar a GITHUB_OUTPUT de forma segura
+          echo "changed<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Debug changed output
-        run: echo "Changed output: ${{ steps.detect.outputs.changed }}"
+        shell: bash
+        env:
+          CHANGED_FROM_STEP: ${{ steps.detect.outputs.changed }}
+        run: |
+          printf 'DEBUG: raw detect output follows (may be empty):\n%s\n' "$CHANGED_FROM_STEP"
+          # Mostrar cada carpeta detectada en líneas separadas:
+          if [ -n "$CHANGED_FROM_STEP" ]; then
+            echo "Detected folders:"
+            echo "$CHANGED_FROM_STEP" | sed '/^$/d' | while IFS= read -r line; do
+              echo "- [$line]"
+            done
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -36,46 +75,57 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy changed Lambdas
-        if: ${{ steps.detect.outputs.changed }}
+        if: ${{ steps.detect.outputs.changed != '' }}
+        shell: bash
+        env:
+          CHANGED_LIST: ${{ steps.detect.outputs.changed }}
+          ROLE_ARN: "arn:aws:iam::880140151067:role/LambdaExecutionRole"
         run: |
-          for lambda_dir in ${{ steps.detect.outputs.changed }}; do
-            echo "🚀 Deploying Lambda: $lambda_dir"
-            cd lambdas/$lambda_dir
+          set -euo pipefail
+          if [ -z "$CHANGED_LIST" ]; then
+            echo "No lambdas to deploy."
+            exit 0
+          fi
 
-            # Crear carpeta temporal para dependencias
+          # Iterar por cada carpeta (una por línea)
+          IFS=$'\n'
+          for lambda_dir in $CHANGED_LIST; do
+            lambda_dir="$(echo "$lambda_dir" | xargs)"   # trim
+            [ -z "$lambda_dir" ] && continue
+            echo "🚀 Deploying Lambda: '$lambda_dir'"
+            cd "lambdas/$lambda_dir" || { echo "Folder lambdas/$lambda_dir not found"; continue; }
+
             mkdir -p package
 
-            # Instalar dependencias (si hay)
             if [ -f requirements.txt ]; then
               pip install -r requirements.txt -t ./package
             fi
 
-            # Copiar código fuente
+            # Copiar código
             cp -r *.py ./package/ 2>/dev/null || true
 
-            # Crear zip
             cd package
             zip -r ../function.zip .
             cd ..
 
-            # Subir o crear función
-            FUNCTION_NAME=$lambda_dir
-            ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
+            FUNCTION_NAME="$lambda_dir"
 
-            if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
+            if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
               echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
               aws lambda update-function-code \
-                --function-name $FUNCTION_NAME \
+                --function-name "$FUNCTION_NAME" \
                 --zip-file fileb://function.zip
             else
               echo "🆕 Creating new Lambda: $FUNCTION_NAME"
               aws lambda create-function \
-                --function-name $FUNCTION_NAME \
+                --function-name "$FUNCTION_NAME" \
                 --runtime python3.11 \
-                --role $ROLE_ARN \
+                --role "$ROLE_ARN" \
                 --handler lambda_function.lambda_handler \
                 --zip-file fileb://function.zip
             fi
 
+            # Volver al workspace
             cd ../..
+            rm -f function.zip
           done
