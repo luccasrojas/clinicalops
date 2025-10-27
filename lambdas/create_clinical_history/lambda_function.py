@@ -1,10 +1,9 @@
 import os
-from dotenv import load_dotenv
 import openai
 from datetime import datetime
 import json
 
-load_dotenv()
+from prompts import SYSTEM_PROMPT, CLINICAL_NOTE_EXAMPLE
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -23,11 +22,11 @@ def generate_temporal_context():
     fecha = f"{hoy.day} de {mes} de {hoy.year} {hoy.strftime('%H:%M')}"
     return f"hoy es {dia_semana}, {fecha}."
 
-def generate_clinical_note(transcription, prompt, clinical_note_example):
+def generate_clinical_note(transcription, system_prompt, clinical_note_example):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     temporal_context = generate_temporal_context()
-    formatted_prompt = prompt.format(temporal_context=temporal_context, clinical_note_example=clinical_note_example)
+    formatted_prompt = system_prompt.format(temporal_context=temporal_context, clinical_note_example=clinical_note_example)
 
     completion = client.responses.create(
         model="gpt-5",
@@ -61,4 +60,11 @@ def generate_clinical_note(transcription, prompt, clinical_note_example):
 
 
 def lambda_handler(event, context):
-    return {"statusCode": 200, "body": "OK"}
+    transcription = event['transcription']
+
+    if 'clinical_note_example' not in event:
+        clinical_note_example = CLINICAL_NOTE_EXAMPLE
+    else:
+        clinical_note_example = event['clinical_note_example']
+    
+    return generate_clinical_note(transcription, SYSTEM_PROMPT, clinical_note_example)
