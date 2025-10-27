@@ -22,7 +22,6 @@ def transcribe_audio(audio_url):
     return full_text
 
 def lambda_handler(event, context):
-    print(event)
     audio_url = event['audio_url']
     transcribed_text = transcribe_audio(audio_url)
     return {"statusCode": 200, "body": transcribed_text}

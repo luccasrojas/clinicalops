@@ -39,17 +39,23 @@ jobs:
             echo "🚀 Deploying Lambda: $lambda_dir"
             cd lambdas/$lambda_dir
 
-            # Crear paquete
+            # Crear carpeta de paquete
             mkdir -p package
+
+            # Instalar dependencias dentro del contenedor oficial de Lambda
             if [ -f requirements.txt ]; then
               echo "📦 Instalando dependencias para $lambda_dir dentro del contenedor Lambda..."
-              docker run --rm -v "$(pwd)":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
+              docker run --rm -v "$PWD":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
                 -c "pip install -r requirements.txt -t package"
             fi
-            cp -r lambdas/$lambda_dir/*.py lambdas/$lambda_dir/package/ 2>/dev/null || true
-            cd lambdas/$lambda_dir/package
+
+            # Copiar archivos .py (dentro del mismo directorio actual)
+            cp -r ./*.py ./package/ 2>/dev/null || true
+
+            # Crear el ZIP
+            cd package
             zip -r ../function.zip . > /dev/null
-            cd ../..
+            cd ..
 
             # Leer configuración YAML (o usar valores por defecto)
             CONFIG_FILE="lambda_config.yml"
@@ -72,34 +78,33 @@ jobs:
             FUNCTION_NAME=$lambda_dir
 
             if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
-            echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
-            aws lambda update-function-code \
-              --function-name $FUNCTION_NAME \
-              --zip-file fileb://function.zip
+              echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
+              aws lambda update-function-code \
+                --function-name $FUNCTION_NAME \
+                --zip-file fileb://function.zip
 
-            echo "⏳ Waiting for code update to complete..."
-            aws lambda wait function-updated --function-name $FUNCTION_NAME
+              echo "⏳ Waiting for code update to complete..."
+              aws lambda wait function-updated --function-name $FUNCTION_NAME
 
-            aws lambda update-function-configuration \
-              --function-name $FUNCTION_NAME \
-              --runtime $RUNTIME \
-              --memory-size $MEMORY \
-              --timeout $TIMEOUT \
-              --description "$DESCRIPTION" \
-              --handler $HANDLER
-          else
-            echo "🆕 Creating new Lambda: $FUNCTION_NAME"
-            aws lambda create-function \
-              --function-name $FUNCTION_NAME \
-              --runtime $RUNTIME \
-              --role $ROLE_ARN \
-              --handler $HANDLER \
-              --memory-size $MEMORY \
-              --timeout $TIMEOUT \
-              --description "$DESCRIPTION" \
-              --zip-file fileb://function.zip
-          fi
-
+              aws lambda update-function-configuration \
+                --function-name $FUNCTION_NAME \
+                --runtime $RUNTIME \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
+                --handler $HANDLER
+            else
+              echo "🆕 Creating new Lambda: $FUNCTION_NAME"
+              aws lambda create-function \
+                --function-name $FUNCTION_NAME \
+                --runtime $RUNTIME \
+                --role $ROLE_ARN \
+                --handler $HANDLER \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
+                --zip-file fileb://function.zip
+            fi
 
             cd ../..
           done
