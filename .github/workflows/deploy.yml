@@ -5,7 +5,7 @@ on:
     branches:
       - lambdas
     paths:
-      - 'lambdas/**'   # Solo dispara si hay cambios en carpetas dentro de lambdas
+      - 'lambdas/**'
 
 jobs:
   deploy:
@@ -25,18 +25,6 @@ jobs:
           echo "Changed lambdas: $CHANGED"
           echo "changed=$(echo $CHANGED | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
-      - name: Debug detected changes
-        run: |
-          echo "Changed lambdas: ${{ steps.detect.outputs.changed }}"
-
-
-      - name: Debug info
-        run: |
-          echo "Current branch: ${{ github.ref }}"
-          echo "Changed: ${{ steps.detect.outputs.changed }}"
-          echo "Files in repo:"
-          ls -R lambdas || true
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -51,38 +39,59 @@ jobs:
             echo "🚀 Deploying Lambda: $lambda_dir"
             cd lambdas/$lambda_dir
 
-            # Crear carpeta temporal para dependencias
+            # Crear paquete
             mkdir -p package
-
-            # Instalar dependencias (si hay)
             if [ -f requirements.txt ]; then
               pip install -r requirements.txt -t ./package
             fi
-
-            # Copiar código fuente
             cp -r *.py ./package/ 2>/dev/null || true
-
-            # Crear zip
             cd package
-            zip -r ../function.zip .
+            zip -r ../function.zip . > /dev/null
             cd ..
 
-            # Subir o crear función
-            FUNCTION_NAME=$lambda_dir
+            # Leer configuración YAML (o usar valores por defecto)
+            CONFIG_FILE="lambda_config.yml"
+            if [ -f "$CONFIG_FILE" ]; then
+              RUNTIME=$(yq -r '.runtime // "python3.11"' $CONFIG_FILE)
+              MEMORY=$(yq -r '.memory_size // 256' $CONFIG_FILE)
+              TIMEOUT=$(yq -r '.timeout // 30' $CONFIG_FILE)
+              DESCRIPTION=$(yq -r '.description // "Lambda function '$lambda_dir'"' $CONFIG_FILE)
+              HANDLER=$(yq -r '.handler // "lambda_function.lambda_handler"' $CONFIG_FILE)
+            else
+              echo "⚠️ No config file found for $lambda_dir, using defaults."
+              RUNTIME="python3.11"
+              MEMORY=256
+              TIMEOUT=30
+              DESCRIPTION="Lambda function $lambda_dir"
+              HANDLER="lambda_function.lambda_handler"
+            fi
+
             ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
+            FUNCTION_NAME=$lambda_dir
 
             if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
               echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
               aws lambda update-function-code \
                 --function-name $FUNCTION_NAME \
                 --zip-file fileb://function.zip
+
+              aws lambda update-function-configuration \
+                --function-name $FUNCTION_NAME \
+                --runtime $RUNTIME \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
+                --handler $HANDLER
             else
               echo "🆕 Creating new Lambda: $FUNCTION_NAME"
               aws lambda create-function \
                 --function-name $FUNCTION_NAME \
-                --runtime python3.11 \
+                --runtime $RUNTIME \
                 --role $ROLE_ARN \
-                --handler lambda_function.lambda_handler \
+                --handler $HANDLER \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
                 --zip-file fileb://function.zip
             fi
 
