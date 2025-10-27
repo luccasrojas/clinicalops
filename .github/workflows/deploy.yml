@@ -42,12 +42,13 @@ jobs:
             # Crear paquete
             mkdir -p package
             if [ -f requirements.txt ]; then
-              pip install -r requirements.txt -t ./package
+              docker run --rm -v "$PWD":/var/task public.ecr.aws/lambda/python:3.11 \
+                /bin/bash -c "pip install -r lambdas/$lambda_dir/requirements.txt -t lambdas/$lambda_dir/package"
             fi
-            cp -r *.py ./package/ 2>/dev/null || true
-            cd package
+            cp -r lambdas/$lambda_dir/*.py lambdas/$lambda_dir/package/ 2>/dev/null || true
+            cd lambdas/$lambda_dir/package
             zip -r ../function.zip . > /dev/null
-            cd ..
+            cd ../..
 
             # Leer configuración YAML (o usar valores por defecto)
             CONFIG_FILE="lambda_config.yml"
