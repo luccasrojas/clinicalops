@@ -42,8 +42,9 @@ jobs:
             # Crear paquete
             mkdir -p package
             if [ -f requirements.txt ]; then
+              echo "📦 Instalando dependencias para $lambda_dir dentro del contenedor Lambda..."
               docker run --rm -v "$PWD":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
-              -c "pip install -r lambdas/$lambda_dir/requirements.txt -t lambdas/$lambda_dir/package"
+                -c "cd lambdas/$lambda_dir && pip install -r requirements.txt -t package"
             fi
             cp -r lambdas/$lambda_dir/*.py lambdas/$lambda_dir/package/ 2>/dev/null || true
             cd lambdas/$lambda_dir/package
