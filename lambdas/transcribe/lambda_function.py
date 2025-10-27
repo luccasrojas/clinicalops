@@ -1,8 +1,5 @@
 import os
-from dotenv import load_dotenv
 import assemblyai as aai
-
-load_dotenv()
 
 ASSEMBLY_KEY = os.getenv("ASSEMBLY_KEY")
 
