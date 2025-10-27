@@ -70,30 +70,34 @@ jobs:
             FUNCTION_NAME=$lambda_dir
 
             if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
-              echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
-              aws lambda update-function-code \
-                --function-name $FUNCTION_NAME \
-                --zip-file fileb://function.zip
+            echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
+            aws lambda update-function-code \
+              --function-name $FUNCTION_NAME \
+              --zip-file fileb://function.zip
 
-              aws lambda update-function-configuration \
-                --function-name $FUNCTION_NAME \
-                --runtime $RUNTIME \
-                --memory-size $MEMORY \
-                --timeout $TIMEOUT \
-                --description "$DESCRIPTION" \
-                --handler $HANDLER
-            else
-              echo "🆕 Creating new Lambda: $FUNCTION_NAME"
-              aws lambda create-function \
-                --function-name $FUNCTION_NAME \
-                --runtime $RUNTIME \
-                --role $ROLE_ARN \
-                --handler $HANDLER \
-                --memory-size $MEMORY \
-                --timeout $TIMEOUT \
-                --description "$DESCRIPTION" \
-                --zip-file fileb://function.zip
-            fi
+            echo "⏳ Waiting for code update to complete..."
+            aws lambda wait function-updated --function-name $FUNCTION_NAME
+
+            aws lambda update-function-configuration \
+              --function-name $FUNCTION_NAME \
+              --runtime $RUNTIME \
+              --memory-size $MEMORY \
+              --timeout $TIMEOUT \
+              --description "$DESCRIPTION" \
+              --handler $HANDLER
+          else
+            echo "🆕 Creating new Lambda: $FUNCTION_NAME"
+            aws lambda create-function \
+              --function-name $FUNCTION_NAME \
+              --runtime $RUNTIME \
+              --role $ROLE_ARN \
+              --handler $HANDLER \
+              --memory-size $MEMORY \
+              --timeout $TIMEOUT \
+              --description "$DESCRIPTION" \
+              --zip-file fileb://function.zip
+          fi
+
 
             cd ../..
           done
