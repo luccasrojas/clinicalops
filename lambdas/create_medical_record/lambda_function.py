@@ -22,7 +22,7 @@ def generate_temporal_context():
     fecha = f"{hoy.day} de {mes} de {hoy.year} {hoy.strftime('%H:%M')}"
     return f"hoy es {dia_semana}, {fecha}."
 
-def generate_clinical_note(transcription, system_prompt, clinical_note_example):
+def generate_medical_record(transcription, system_prompt, clinical_note_example):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     temporal_context = generate_temporal_context()
@@ -67,4 +67,4 @@ def lambda_handler(event, context):
     else:
         clinical_note_example = event['clinical_note_example']
     
-    return generate_clinical_note(transcription, SYSTEM_PROMPT, clinical_note_example)
+    return generate_medical_record(transcription, SYSTEM_PROMPT, clinical_note_example)
