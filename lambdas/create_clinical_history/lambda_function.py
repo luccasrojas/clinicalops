@@ -61,43 +61,4 @@ def generate_clinical_note(transcription, prompt, clinical_note_example):
 
 
 def lambda_handler(event, context):
-    # CORS headers for browser requests
-    headers = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-        "Access-Control-Allow-Methods": "POST,OPTIONS"
-    }
-    
-    try:
-        # Handle preflight OPTIONS request
-        if event.get('httpMethod') == 'OPTIONS':
-            return {
-                "statusCode": 200,
-                "headers": headers,
-                "body": json.dumps({"message": "CORS preflight"})
-            }
-        
-        # Only allow POST method
-        if event.get('httpMethod') != 'POST':
-            return {
-                "statusCode": 405,
-                "headers": headers,
-                "body": json.dumps({"error": "Method not allowed. Use POST."})
-            }
-        
-        # Parse request body
-        if not event.get('body'):
-            return {
-                "statusCode": 400,
-                "headers": headers,
-                "body": json.dumps({"error": "Request body is required"})
-            }
-        
-        try:
-            body = json.loads(event['body'])
-        except json.JSONDecodeError:
-            return {
-                "statusCode": 400,
-                "headers": headers,
-                "body": json.dumps({"error": "Invalid JSON in request body"})
+    return {"statusCode": 200, "body": "OK"}
