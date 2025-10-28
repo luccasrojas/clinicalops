@@ -18,12 +18,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Detect Lambda folders
+      - name: Detect changed Lambdas
         id: detect
         run: |
-          CHANGED=$(ls -1 lambdas)
+          CHANGED=$(git diff --name-only HEAD^ HEAD | grep '^lambdas/' | cut -d/ -f2 | sort -u)
           echo "Changed lambdas: $CHANGED"
-          echo "changed=$(echo $CHANGED | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -107,4 +107,22 @@ jobs:
             fi
 
             cd ../..
+          done
+
+      - name: Clean up removed Lambdas
+        run: |
+          echo "🧹 Checking for Lambdas to delete..."
+          set -e
+
+          LOCAL_LAMBDAS=$(ls -1 lambdas | tr '\n' ' ')
+          AWS_LAMBDAS=$(aws lambda list-functions \
+            --query "Functions[?starts_with(FunctionName, '')].FunctionName" \
+            --output text)
+
+          for fn in $AWS_LAMBDAS; do
+            local_name=${fn}
+            if ! echo "$LOCAL_LAMBDAS" | grep -qw "$local_name"; then
+              echo "🗑️ Deleting Lambda not found locally: $fn"
+              aws lambda delete-function --function-name "$fn"
+            fi
           done

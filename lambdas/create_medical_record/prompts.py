@@ -17,6 +17,10 @@ El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribi
 - Devuelve **únicamente un JSON válido**, sin texto adicional ni explicaciones.
 
 [FORMATO — SALIDA JSON ESPERADA]
+{medical_record_format}
+"""
+
+DEFAULT_MEDICAL_RECORD_FORMAT = """
 {{
   "datos_personales": {{
     "edad": "",
