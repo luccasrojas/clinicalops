@@ -3,7 +3,7 @@ name: Deploy AWS Lambdas
 on:
   push:
     branches:
-      - main
+      - lambdas
     paths:
       - 'lambdas/**'
 
@@ -15,58 +15,15 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout code (full history)
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0    # <<-- importante para poder comparar commits
 
-      - name: Detect changed Lambda folders
+      - name: Detect changed Lambdas
         id: detect
-        shell: bash
         run: |
-          # Obtiene la lista de archivos cambiados entre before y after
-          echo "GITHUB EVENT BEFORE: '${{ github.event.before }}'"
-          echo "GITHUB SHA: '${{ github.sha }}'"
-
-          # Si github.event.before es vacío o all-zero, detectar cambios contra HEAD~1
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            BEFORE=$(git rev-parse HEAD^1 || echo "")
-          fi
-
-          # Hacemos diff; si BEFORE está vacío, listamos archivos del commit actual
-          if [ -n "$BEFORE" ]; then
-            CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" | grep '^lambdas/' | cut -d'/' -f2 | sort -u)
-          else
-            CHANGED=$(git show --name-only --pretty="" "${{ github.sha }}" | grep '^lambdas/' | cut -d'/' -f2 | sort -u)
-          fi
-
-          # Normalizar a una sola línea separada por newlines
-          if [ -z "$CHANGED" ]; then
-            echo "No lambda folders changed."
-          else
-            echo "Changed lambdas (one per line):"
-            echo "$CHANGED"
-          fi
-
-          # Exportar a GITHUB_OUTPUT de forma segura
-          echo "changed<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Debug changed output
-        shell: bash
-        env:
-          CHANGED_FROM_STEP: ${{ steps.detect.outputs.changed }}
-        run: |
-          printf 'DEBUG: raw detect output follows (may be empty):\n%s\n' "$CHANGED_FROM_STEP"
-          # Mostrar cada carpeta detectada en líneas separadas:
-          if [ -n "$CHANGED_FROM_STEP" ]; then
-            echo "Detected folders:"
-            echo "$CHANGED_FROM_STEP" | sed '/^$/d' | while IFS= read -r line; do
-              echo "- [$line]"
-            done
-          fi
+          CHANGED=$(ls -1 lambdas | tr '\n' ' ')
+          echo "Changed lambdas: $CHANGED"
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -76,56 +33,96 @@ jobs:
 
       - name: Deploy changed Lambdas
         if: ${{ steps.detect.outputs.changed != '' }}
-        shell: bash
-        env:
-          CHANGED_LIST: ${{ steps.detect.outputs.changed }}
-          ROLE_ARN: "arn:aws:iam::880140151067:role/LambdaExecutionRole"
         run: |
-          set -euo pipefail
-          if [ -z "$CHANGED_LIST" ]; then
-            echo "No lambdas to deploy."
-            exit 0
-          fi
+          set -e
+          for lambda_dir in ${{ steps.detect.outputs.changed }}; do
+            echo "🚀 Deploying Lambda: $lambda_dir"
+            cd lambdas/$lambda_dir
 
-          # Iterar por cada carpeta (una por línea)
-          IFS=$'\n'
-          for lambda_dir in $CHANGED_LIST; do
-            lambda_dir="$(echo "$lambda_dir" | xargs)"   # trim
-            [ -z "$lambda_dir" ] && continue
-            echo "🚀 Deploying Lambda: '$lambda_dir'"
-            cd "lambdas/$lambda_dir" || { echo "Folder lambdas/$lambda_dir not found"; continue; }
-
+            # Crear carpeta de paquete
             mkdir -p package
 
+            # Instalar dependencias dentro del contenedor oficial de Lambda
             if [ -f requirements.txt ]; then
-              pip install -r requirements.txt -t ./package
+              echo "📦 Instalando dependencias para $lambda_dir dentro del contenedor Lambda..."
+              docker run --rm -v "$PWD":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
+                -c "pip install -r requirements.txt -t package"
             fi
 
-            # Copiar código
-            cp -r *.py ./package/ 2>/dev/null || true
+            # Copiar archivos .py (dentro del mismo directorio actual)
+            cp -r ./*.py ./package/ 2>/dev/null || true
 
+            # Crear el ZIP
             cd package
-            zip -r ../function.zip .
+            zip -r ../function.zip . > /dev/null
             cd ..
 
-            FUNCTION_NAME="$lambda_dir"
+            # Leer configuración YAML (o usar valores por defecto)
+            CONFIG_FILE="lambda_config.yml"
+            if [ -f "$CONFIG_FILE" ]; then
+              RUNTIME=$(yq -r '.runtime // "python3.11"' $CONFIG_FILE)
+              MEMORY=$(yq -r '.memory_size // 256' $CONFIG_FILE)
+              TIMEOUT=$(yq -r '.timeout // 30' $CONFIG_FILE)
+              DESCRIPTION=$(yq -r '.description // "Lambda function '$lambda_dir'"' $CONFIG_FILE)
+              HANDLER=$(yq -r '.handler // "lambda_function.lambda_handler"' $CONFIG_FILE)
+            else
+              echo "⚠️ No config file found for $lambda_dir, using defaults."
+              RUNTIME="python3.11"
+              MEMORY=256
+              TIMEOUT=30
+              DESCRIPTION="Lambda function $lambda_dir"
+              HANDLER="lambda_function.lambda_handler"
+            fi
 
-            if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+            ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
+            FUNCTION_NAME=$lambda_dir
+
+            if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
               echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
               aws lambda update-function-code \
-                --function-name "$FUNCTION_NAME" \
+                --function-name $FUNCTION_NAME \
                 --zip-file fileb://function.zip
+
+              echo "⏳ Waiting for code update to complete..."
+              aws lambda wait function-updated --function-name $FUNCTION_NAME
+
+              aws lambda update-function-configuration \
+                --function-name $FUNCTION_NAME \
+                --runtime $RUNTIME \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
+                --handler $HANDLER
             else
               echo "🆕 Creating new Lambda: $FUNCTION_NAME"
               aws lambda create-function \
-                --function-name "$FUNCTION_NAME" \
-                --runtime python3.11 \
-                --role "$ROLE_ARN" \
-                --handler lambda_function.lambda_handler \
+                --function-name $FUNCTION_NAME \
+                --runtime $RUNTIME \
+                --role $ROLE_ARN \
+                --handler $HANDLER \
+                --memory-size $MEMORY \
+                --timeout $TIMEOUT \
+                --description "$DESCRIPTION" \
                 --zip-file fileb://function.zip
             fi
 
-            # Volver al workspace
             cd ../..
-            rm -f function.zip
+          done
+
+      - name: Clean up removed Lambdas
+        run: |
+          echo "🧹 Checking for Lambdas to delete..."
+          set -e
+
+          LOCAL_LAMBDAS=$(ls -1 lambdas | tr '\n' ' ')
+          AWS_LAMBDAS=$(aws lambda list-functions \
+            --query "Functions[?starts_with(FunctionName, '')].FunctionName" \
+            --output text)
+
+          for fn in $AWS_LAMBDAS; do
+            local_name=${fn}
+            if ! echo "$LOCAL_LAMBDAS" | grep -qw "$local_name"; then
+              echo "🗑️ Deleting Lambda not found locally: $fn"
+              aws lambda delete-function --function-name "$fn"
+            fi
           done

@@ -1,0 +1,4 @@
+runtime: python3.11
+memory_size: 256
+timeout: 20
+handler: lambda_function.lambda_handler
