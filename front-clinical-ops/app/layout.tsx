@@ -8,9 +8,9 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: 'Clinicalops',
+  title: 'ClinicalOps - Historias Clínicas con IA',
   description:
-    'Asistente con inteligencia artificial para generar historias clínicas',
+    'Plataforma de inteligencia artificial para generar historias clínicas detalladas, precisas y estructuradas en minutos.',
 }
 
 export default function RootLayout({
