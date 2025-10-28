@@ -5,7 +5,7 @@ from typing import Dict, Any
 from urllib.parse import unquote_plus
 
 s3_client = boto3.client('s3')
-MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE_MB', '1')) * 1024 * 1024  # Default 1MB in bytes
+MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE_MB', '5')) * 1024 * 1024  # Default 5MB in bytes
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
