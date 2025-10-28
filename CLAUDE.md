@@ -146,3 +146,16 @@ Required for backend (`fastapi-app/.env`):
 Backend is containerized and deployed to Google Cloud Platform:
 - Artifact Registry: `us-central1-docker.pkg.dev/prartis-cloud-platform/fastapi-app-artifact/fastapi-app-image`
 - Build triggered via Cloud Build using `cloudbuild.yaml`
+
+## AWS Configuration
+
+**IMPORTANT**: All AWS CLI commands must use the `admin-clinicalops` profile.
+
+Always append `--profile admin-clinicalops` to AWS CLI commands:
+
+```bash
+# Examples:
+aws s3 ls --profile admin-clinicalops
+aws lambda list-functions --profile admin-clinicalops
+aws cloudfront create-invalidation --profile admin-clinicalops --distribution-id XXX --paths "/*"
+```

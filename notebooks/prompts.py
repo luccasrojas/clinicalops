@@ -202,3 +202,70 @@ Eres un médico encargado de analizar una historia clínica y devolver un format
   }
 }
 """
+
+
+MEDICAL_RECORD_STRUCTURE_EXAMPLE = """
+HISTORIA CLÍNICA PEDIATRÍA
+DATOS DEL PACIENTE Y ACUDIENTE (mostrar solo presentes; si ninguno, omitir sección)
+- Nombre y documento: {…}
+- Edad/sexo: {…}
+- Fecha/hora y servicio: {…}
+- Acudiente y parentesco: {…}
+- Contacto: {…}
+MOTIVO DE CONSULTA
+- “{palabras literales del paciente o del acudiente}”
+ENFERMEDAD ACTUAL (cronopatológico con tiempos: h/d/sem; anote fechas si existen)
+{inicio → evolución → factores desencadenantes/agravantes/atenuantes → síntomas
+asociados → severidad/funcionalidad → ttos previos y respuesta}
+ANTECEDENTES
+- Prenatales: {controles, GA, complicaciones, fármacos maternos}
+- Perinatales/neonatales: {vía de parto, Apgar 1/5 min, reanimación, UCI/incubadora,
+cribados}
+- Desarrollo y crecimiento: {hitos clave; peso, talla, PC, IMC, P/T con percentiles/z}
+- Alimentación/suplementos: {lactancia, fórmula, ablactación, sólidos, hierro, vit D}
+- Vacunación: {esquema según carné; pendientes}
+- Personales patológicos: {alergias, fármacos actuales, hospitalizaciones, cx, traumas,
+transfusiones}
+- Familiares: {enf. hereditarias, atopia, TB, consanguinidad}
+- Entorno/psicosocial: {convivencia, escuela, humo/tabaco, violencia; en ≥10 años,
+HEEADSSS resumido}
+- Hábitos: {sueño, eliminación, higiene oral}
+REVISIÓN POR SISTEMAS (listar solo mencionados)
+- General, Piel, Ojos/ORL, Respiratorio, Cardiovascular, GI, GU, Músculo-esquelético,
+Neurológico, Endocrino, Psicológico/Conductual
+EXAMEN FÍSICO (registre solo lo medido; omita subsecciones sin datos)
+- Antropometría: Peso {…} kg (P%/z), Talla {…} cm (P%/z), PC {…} cm (P%/z), IMC {…}
+(P%/z), P/T {…} (P%/z)
+- Signos vitales por edad: TA {…} mmHg, FC {…} lpm, FR {…} rpm, Temp {…} °C, SpO₂ {…}
+%
+- Estado general y nivel de hidratación
+- Cabeza/ORL | Cuello
+- Respiratorio (IPPA) | Cardiovascular
+- Abdomen
+- Genitourinario (si procede) | Tanner {I–V} (si procede)
+- Músculo-esquelético | Neurológico | Piel/TEG
+PARACLÍNICOS/IMÁGENES (si hay)
+- {Fecha} — {Estudio}: {hallazgos clave e interpretación}
+IMPRESIÓN DIAGNÓSTICA
+- Diagnósticos actuales (con CIE-10, sin justificación):
+- {Dx 1} — {CIE-10}
+- {Dx 2} — {CIE-10}
+- {…}
+ANÁLISIS CLÍNICO
+“Paciente de {edad} años con diagnóstico actual de {Dx principal}{; antecedente relevante si
+aplica}. Actualmente {estado/hallazgos}. Conductas: {qué haremos y por qué}. Solicitudes:
+{laboratorios/imágenes} con propósito clínico.”
+PLAN DE MANEJO (omita ítems no aplicables; dosis en mg/kg)
+1) {Alta | Observación | Hospitalización | UCI}
+2) {VO/IV; tipo de dieta; SRO/plan B/C si diarrea}
+3) {aire ambiente | cánula | máscara; metas SpO₂}
+4) Líquidos y accesos{solución, volumen, balance}
+5) Medicación: {antipirético, analgesia, antibiótico si indicado y duración, profilaxis TE si
+corresponde, gastroprotección, ajustes de crónicos}
+6) Procedimientos/curaciones
+8) Paraclínicos/Imágenes solicitados: {prueba}
+9) Interconsultas/referencia
+11) Educación al cuidador y advertencias: {señales de alarma específicas}
+NOTAS DE CALIDAD DE DATOS
+- {inconsistencias, secciones inaudibles, datos críticos ausentes}
+"""
