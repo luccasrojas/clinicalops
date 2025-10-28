@@ -99,3 +99,12 @@ next-env.d.ts
 # virtual environments
 **/.venv/
 
+# IDE files
+.vscode/
+**/.vscode/
+
+# stitch-examples (ignore permanently at any level)
+stitch-examples/
+**/stitch-examples/
+stitch-examples
+

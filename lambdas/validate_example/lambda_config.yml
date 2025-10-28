@@ -1,0 +1,5 @@
+runtime: python3.11
+memory_size: 256
+timeout: 30
+handler: lambda_function.lambda_handler
+description: Validate text files uploaded to S3 examples folder via event trigger
