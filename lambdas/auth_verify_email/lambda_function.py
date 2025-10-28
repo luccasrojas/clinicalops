@@ -27,40 +27,32 @@ def calculate_secret_hash(username, client_id, client_secret):
 
 def lambda_handler(event, context):
     """
-    Lambda function to register a new doctor in Cognito (Step 1)
-
+    Lambda function to verify email with OTP code
+    
     Expected event body:
     {
         "email": "doctor@example.com",
-        "password": "Password123",
-        "name": "Juan",
-        "familyName": "Pérez",
-        "specialty": "Cardiología",
-        "medicalRegistry": "MED-12345"
+        "code": "123456"
     }
-
+    
     Returns:
-    - Success: User sub (ID) and confirmation status
+    - Success: Confirmation message
     - Error: Error message and status code
     """
-
+    
     try:
         # Parse request body
         if isinstance(event.get('body'), str):
             body = json.loads(event['body'])
         else:
             body = event.get('body', {})
-
+        
         # Extract and validate required fields
         email = body.get('email')
-        password = body.get('password')
-        name = body.get('name')
-        family_name = body.get('familyName')
-        specialty = body.get('specialty')
-        medical_registry = body.get('medicalRegistry')
-
+        code = body.get('code')
+        
         # Validate required fields
-        if not all([email, password, name, family_name, specialty, medical_registry]):
+        if not all([email, code]):
             return {
                 'statusCode': 400,
                 'headers': {
@@ -68,66 +60,35 @@ def lambda_handler(event, context):
                     'Access-Control-Allow-Origin': '*'
                 },
                 'body': json.dumps({
-                    'error': 'All fields are required: email, password, name, familyName, specialty, medicalRegistry'
+                    'error': 'Both email and code are required'
                 })
             }
-
+        
         # Calculate SECRET_HASH
         secret_hash = calculate_secret_hash(email, COGNITO_CLIENT_ID, COGNITO_CLIENT_SECRET)
-
-        # Prepare user attributes
-        # Note: Custom attributes in Cognito have double "custom:" prefix due to creation
-        user_attributes = [
-            {'Name': 'email', 'Value': email},
-            {'Name': 'name', 'Value': name},
-            {'Name': 'family_name', 'Value': family_name},
-            {'Name': 'custom:custom:specialty', 'Value': specialty},
-            {'Name': 'custom:custom:medicalreg', 'Value': medical_registry}
-        ]
-
-        # Sign up user in Cognito
-        response = cognito_client.sign_up(
+        
+        # Confirm sign up with verification code
+        cognito_client.confirm_sign_up(
             ClientId=COGNITO_CLIENT_ID,
             SecretHash=secret_hash,
             Username=email,
-            Password=password,
-            UserAttributes=user_attributes
+            ConfirmationCode=code
         )
-
-        user_sub = response['UserSub']
-        user_confirmed = response['UserConfirmed']
-
-        # Note: User will receive email with verification code
-        # They need to verify email before completing registration
-
+        
         return {
-            'statusCode': 201,
+            'statusCode': 200,
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'message': 'User registered successfully in Cognito',
-                'userSub': user_sub,
+                'message': 'Email verified successfully',
                 'email': email,
-                'confirmed': user_confirmed,
-                'nextStep': 'Please proceed to step 2 to provide example clinical history'
+                'verified': True
             })
         }
-
-    except cognito_client.exceptions.UsernameExistsException:
-        return {
-            'statusCode': 409,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps({
-                'error': 'A user with this email already exists'
-            })
-        }
-
-    except cognito_client.exceptions.InvalidPasswordException as e:
+    
+    except cognito_client.exceptions.CodeMismatchException:
         return {
             'statusCode': 400,
             'headers': {
@@ -135,11 +96,11 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'error': f'Invalid password: {str(e)}'
+                'error': 'Invalid verification code'
             })
         }
-
-    except cognito_client.exceptions.InvalidParameterException as e:
+    
+    except cognito_client.exceptions.ExpiredCodeException:
         return {
             'statusCode': 400,
             'headers': {
@@ -147,10 +108,22 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'error': f'Invalid parameter: {str(e)}'
+                'error': 'Verification code has expired'
             })
         }
-
+    
+    except cognito_client.exceptions.NotAuthorizedException:
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': 'User is already confirmed'
+            })
+        }
+    
     except ClientError as e:
         print(f"ClientError: {e}")
         return {
@@ -160,10 +133,10 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'error': f'Registration error: {str(e)}'
+                'error': f'Verification error: {str(e)}'
             })
         }
-
+    
     except Exception as e:
         print(f"Unexpected error: {e}")
         return {

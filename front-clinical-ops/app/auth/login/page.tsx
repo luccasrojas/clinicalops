@@ -9,7 +9,7 @@ export default function LoginPage() {
         <div className='flex justify-center gap-2 md:justify-start'>
           <Link href='/' className='flex items-center gap-2 font-medium'>
             <Image
-              src='/LogoClinicalops.png'
+              src='/med-data.jpg'
               alt='ClinicalOps Logo'
               width={24}
               height={24}
