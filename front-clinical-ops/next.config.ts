@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: './',
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/aida-public/**',
+      },
+    ],
+  },
 }
 
 export default nextConfig
