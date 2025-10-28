@@ -21,7 +21,7 @@ jobs:
       - name: Detect changed Lambdas
         id: detect
         run: |
-          CHANGED=$(ls -1 lambdas)
+          CHANGED=$(ls -1 lambdas | tr '\n' ' ')
           echo "Changed lambdas: $CHANGED"
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
