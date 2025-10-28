@@ -2,6 +2,7 @@ import os
 import json
 import boto3
 from botocore.exceptions import ClientError
+from boto3.dynamodb.types import TypeSerializer
 
 # AWS Configuration
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
@@ -121,8 +122,13 @@ def lambda_handler(event, context):
         # Process example history with extract_format lambda
         print(f"Processing example history for doctor {doctor_id}")
         structured_history = invoke_extract_format_lambda(example_history_text)
+        
+        # Parse the response body if it's wrapped in API Gateway format
+        if 'body' in structured_history:
+            structured_history = json.loads(structured_history['body']) if isinstance(structured_history['body'], str) else structured_history['body']
 
         # Prepare doctor item for DynamoDB
+        # Store structured_history as JSON string to avoid DynamoDB type conversion issues
         doctor_item = {
             'doctorID': doctor_id,
             'email': email,
@@ -130,7 +136,7 @@ def lambda_handler(event, context):
             'lastName': family_name,
             'especiality': specialty,  # Keep Spanish spelling as per requirements
             'medicalRegistry': medical_registry,
-            'example_history': structured_history,
+            'example_history': json.dumps(structured_history) if isinstance(structured_history, dict) else structured_history,
             'example_history_raw': example_history_text,
             'createdAt': context.aws_request_id if context else 'local',
             'registrationComplete': True
