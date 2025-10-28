@@ -104,13 +104,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     continue
 
                 # Validation passed - update object metadata
+                import datetime
+                timestamp = datetime.datetime.utcnow().isoformat()
+
                 s3_client.copy_object(
                     Bucket=bucket_name,
                     CopySource={'Bucket': bucket_name, 'Key': object_key},
                     Key=object_key,
                     Metadata={
                         'validated': 'true',
-                        'validation-timestamp': context.request_id if context else 'unknown',
+                        'validation-timestamp': timestamp,
                         'character-count': str(len(text_content)),
                         'line-count': str(len(text_content.splitlines()))
                     },
