@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Examples of Stitch | AI Design Gen files
+stitch-examples/
