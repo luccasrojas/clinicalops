@@ -35,7 +35,34 @@ This is a monorepo containing a clinical operations platform for transcribing au
 - Next.js 16 with App Router
 - TypeScript with React 19
 - Tailwind CSS v4
-- Currently contains boilerplate; main UI development pending
+- **Architecture**: Feature-based organization following Bulletproof React patterns
+- **State management**: TanStack Query v5 for server state, Zustand for global state
+- **UI**: shadcn/ui components (Radix UI primitives)
+
+**Project structure:**
+```
+front-clinical-ops/
+├── app/                 # Next.js routes (pages)
+├── components/          # Shared components only
+│   └── ui/             # shadcn/ui component library
+├── features/           # Feature modules (MAIN organization)
+│   └── [feature]/
+│       ├── api/        # API calls & React Query hooks
+│       ├── components/ # Feature-specific components  
+│       ├── hooks/      # Feature-specific hooks
+│       ├── stores/     # Feature state (Zustand)
+│       └── types/      # Feature types
+├── lib/                # Configured libraries (api-client, etc)
+├── hooks/              # Shared hooks
+├── stores/             # Global stores
+└── types/              # Shared types
+```
+
+**Key principles:**
+- Feature isolation: No cross-feature imports
+- Unidirectional flow: shared → features → app
+- Colocation: Keep code close to where it's used
+- API pattern: fetcher + queryOptions + custom hook per endpoint
 
 ## Development Commands
 
@@ -118,6 +145,36 @@ Required for backend (`fastapi-app/.env`):
 - `GET /api/test-clinical-note` - Test clinical note generation
 
 ## Code Patterns
+
+### Frontend Feature Development
+
+When adding a new feature to the frontend:
+
+1. **Create feature folder** in `features/[feature-name]/`
+2. **API layer** (`features/[feature-name]/api/`):
+   ```typescript
+   // get-items.ts
+   export const getItems = (params): Promise<Response> => {
+     return api.get('/items', { params });
+   };
+   
+   export const getItemsQueryOptions = (params) => {
+     return queryOptions({
+       queryKey: ['items', params],
+       queryFn: () => getItems(params),
+     });
+   };
+   
+   export const useItems = ({ queryConfig, ...params }) => {
+     return useQuery({
+       ...getItemsQueryOptions(params),
+       ...queryConfig,
+     });
+   };
+   ```
+3. **Components** (`features/[feature-name]/components/`): Feature-specific UI
+4. **Types** (`features/[feature-name]/types/`): TypeScript definitions for this feature
+5. **Compose at app level**: Import features in `app/` routes, never cross-feature
 
 ### Adding new API endpoints:
 1. Create router in `routers/` following `transcribe_router.py` pattern
