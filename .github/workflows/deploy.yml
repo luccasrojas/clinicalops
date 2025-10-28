@@ -21,7 +21,7 @@ jobs:
       - name: Detect changed Lambdas
         id: detect
         run: |
-          CHANGED=$(git diff --name-only HEAD^ HEAD | grep '^lambdas/' | cut -d/ -f2 | sort -u)
+          CHANGED=$(ls -1 lambdas)
           echo "Changed lambdas: $CHANGED"
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
