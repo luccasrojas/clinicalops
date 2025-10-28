@@ -1,0 +1,8 @@
+runtime: python3.11
+memory_size: 256
+timeout: 30
+handler: lambda_function.lambda_handler
+description: "Generate pre-signed URLs for uploading audio recordings to S3"
+environment_variables:
+  BUCKET_NAME: "recordings-clinicalops"
+  AWS_REGION: "us-east-1"

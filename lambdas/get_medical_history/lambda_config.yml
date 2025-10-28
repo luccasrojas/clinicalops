@@ -1,0 +1,8 @@
+runtime: python3.11
+memory_size: 256
+timeout: 30
+handler: lambda_function.lambda_handler
+description: "Get a single medical history by ID with complete data"
+environment_variables:
+  DYNAMODB_TABLE: "medical-histories"
+  AWS_REGION: "us-east-1"
