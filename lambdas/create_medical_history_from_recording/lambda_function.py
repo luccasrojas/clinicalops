@@ -5,11 +5,27 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from boto3.dynamodb.types import TypeDeserializer
+
 lambda_client = boto3.client('lambda')
 dynamodb = boto3.resource('dynamodb')
 histories_table = dynamodb.Table('medical-histories')
 doctors_table = dynamodb.Table('doctors')
 patients_table = dynamodb.Table('pacients')
+
+_type_deserializer = TypeDeserializer()
+_dynamodb_type_keys = {'S', 'N', 'M', 'L', 'BOOL', 'NULL', 'SS', 'NS', 'BS'}
+
+
+def _normalize_dynamodb_json(value):
+    """Convert DynamoDB-encoded JSON to native Python structures recursively."""
+    if isinstance(value, dict):
+        if len(value) == 1 and next(iter(value)) in _dynamodb_type_keys:
+            return _type_deserializer.deserialize(value)
+        return {k: _normalize_dynamodb_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_dynamodb_json(item) for item in value]
+    return value
 
 
 class DecimalEncoder(json.JSONEncoder):
