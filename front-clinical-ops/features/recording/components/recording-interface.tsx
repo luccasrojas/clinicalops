@@ -215,12 +215,12 @@ export function RecordingInterface({
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+    <div className="flex items-center justify-center min-h-screen py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-3xl px-6"
+        className="w-full max-w-4xl px-6"
       >
         <div className="flex flex-col items-center space-y-10">
           {/* Header with gradient */}
@@ -230,7 +230,7 @@ export function RecordingInterface({
             transition={{ delay: 0.2, duration: 0.5 }}
             className="text-center space-y-3"
           >
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent">
               Nueva Historia Clínica
             </h1>
             <motion.p
@@ -332,13 +332,19 @@ export function RecordingInterface({
               transition={{ type: 'spring', stiffness: 300 }}
               className="relative z-10"
             >
-              <motion.div
-                className={`w-44 h-44 rounded-full flex items-center justify-center shadow-2xl relative overflow-hidden ${
+              <motion.button
+                onClick={() => {
+                  if (!isRecording && !isPaused && !isStopped && !isUploading && !isProcessing) {
+                    startRecording();
+                  }
+                }}
+                disabled={isUploading || isProcessing}
+                className={`w-56 h-56 rounded-full flex items-center justify-center shadow-2xl relative overflow-hidden cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-all ${
                   isRecording
                     ? 'bg-gradient-to-br from-teal-500 via-teal-400 to-emerald-500'
                     : isPaused
                     ? 'bg-gradient-to-br from-amber-500 via-orange-400 to-amber-600'
-                    : 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800'
+                    : 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 hover:from-teal-50 hover:to-emerald-50 dark:hover:from-slate-700 dark:hover:to-slate-600'
                 }`}
                 animate={
                   isRecording
@@ -375,11 +381,11 @@ export function RecordingInterface({
                   />
                 )}
                 <Mic
-                  className={`w-20 h-20 relative z-10 ${
+                  className={`w-24 h-24 relative z-10 ${
                     isRecording || isPaused ? 'text-white' : 'text-teal-600 dark:text-teal-400'
                   }`}
                 />
-              </motion.div>
+              </motion.button>
             </motion.div>
           </div>
 
@@ -425,27 +431,9 @@ export function RecordingInterface({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex flex-wrap items-center justify-center gap-4"
+            className="flex flex-wrap items-center justify-center gap-5"
           >
             <AnimatePresence mode="wait">
-              {!isRecording && !isPaused && !isStopped && !isUploading && !isProcessing && (
-                <motion.div
-                  key="start"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button
-                    onClick={startRecording}
-                    size="lg"
-                    className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base"
-                  >
-                    <Mic className="w-5 h-5 mr-2" />
-                    Iniciar Grabación
-                  </Button>
-                </motion.div>
-              )}
 
               {(isRecording || isPaused) && (
                 <motion.div
@@ -453,16 +441,16 @@ export function RecordingInterface({
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-3"
+                  className="flex items-center gap-4"
                 >
                   {isRecording && (
                     <Button
                       onClick={pauseRecording}
                       variant="outline"
                       size="lg"
-                      className="border-2 hover:bg-amber-50 dark:hover:bg-amber-950 px-6 py-6"
+                      className="border-2 hover:bg-amber-50 dark:hover:bg-amber-950 px-8 py-7 text-base"
                     >
-                      <Pause className="w-5 h-5 mr-2" />
+                      <Pause className="w-6 h-6 mr-2" />
                       Pausar
                     </Button>
                   )}
@@ -471,9 +459,9 @@ export function RecordingInterface({
                     <Button
                       onClick={resumeRecording}
                       size="lg"
-                      className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 px-6 py-6"
+                      className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 px-8 py-7 text-base"
                     >
-                      <Play className="w-5 h-5 mr-2" />
+                      <Play className="w-6 h-6 mr-2" />
                       Reanudar
                     </Button>
                   )}
@@ -482,9 +470,9 @@ export function RecordingInterface({
                     onClick={handleStop}
                     variant="destructive"
                     size="lg"
-                    className="shadow-lg px-6 py-6"
+                    className="shadow-lg px-8 py-7 text-base"
                   >
-                    <Square className="w-5 h-5 mr-2" />
+                    <Square className="w-6 h-6 mr-2" />
                     Detener
                   </Button>
                 </motion.div>
@@ -496,7 +484,7 @@ export function RecordingInterface({
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-3"
+                  className="flex items-center gap-4"
                 >
                   <Button
                     onClick={() => {
@@ -505,14 +493,14 @@ export function RecordingInterface({
                     }}
                     variant="outline"
                     size="lg"
-                    className="border-2 px-6 py-6"
+                    className="border-2 px-8 py-7 text-base"
                   >
                     Volver a Grabar
                   </Button>
                   <Button
                     onClick={handleUploadAndProcess}
                     size="lg"
-                    className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all px-8 py-6"
+                    className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all px-10 py-7 text-base font-semibold"
                   >
                     Transcribir a Historia Clínica
                   </Button>
@@ -656,10 +644,10 @@ export function RecordingInterface({
             >
               <label
                 htmlFor="file-upload"
-                className="cursor-pointer flex items-center justify-center space-x-3 px-6 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-500 transition-all duration-300 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+                className="cursor-pointer flex items-center justify-center space-x-3 px-8 py-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-500 transition-all duration-300 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:scale-105"
               >
-                <Upload className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <Upload className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                <span className="text-base font-medium text-slate-700 dark:text-slate-300">
                   O subir archivo de audio desde el PC
                 </span>
               </label>
