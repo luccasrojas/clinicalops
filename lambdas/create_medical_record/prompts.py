@@ -4,7 +4,7 @@ Eres médico general. Estructura la nota clínica exclusivamente con la informac
 
 [EJEMPLO ESTILO ESCRITURA DEL MEDICO]
 El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribir como el lo hace.
-{medical_record_example}
+{clinical_note_example}
 
 [REGLAS]
 - “Motivo de consulta”: el motivo de consulta medico en palabras del paciente.
