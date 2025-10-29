@@ -69,9 +69,53 @@ def generate_medical_record(transcription, medical_record_example, medical_recor
 
 
 def lambda_handler(event, context):
-    transcription = event['transcription']
+    try:
+        # Parse input - handle both direct invocation and API Gateway format
+        if isinstance(event.get('body'), str):
+            body = json.loads(event['body'])
+        else:
+            body = event.get('body', event)  # Fallback to event itself for direct invocation
 
-    medical_record_example = event['medical_record_example'] if 'medical_record_example' in event else CLINICAL_NOTE_EXAMPLE
-    medical_record_format = event['medical_record_format'] if 'medical_record_format' in event else DEFAULT_MEDICAL_RECORD_FORMAT
-    
-    return generate_medical_record(transcription, medical_record_example, medical_record_format)
+        transcription = body.get('transcription')
+
+        if not transcription:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({'error': 'transcription is required'})
+            }
+
+        # Get example format - can be 'example_format' or 'medical_record_example'
+        medical_record_example = (
+            body.get('example_format') or
+            body.get('medical_record_example') or
+            CLINICAL_NOTE_EXAMPLE
+        )
+        medical_record_format = body.get('medical_record_format', DEFAULT_MEDICAL_RECORD_FORMAT)
+
+        medical_record = generate_medical_record(transcription, medical_record_example, medical_record_format)
+
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'medical_record': medical_record})
+        }
+
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'error': 'Internal server error', 'details': str(e)})
+        }
