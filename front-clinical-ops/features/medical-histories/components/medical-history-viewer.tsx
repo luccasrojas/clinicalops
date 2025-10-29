@@ -203,34 +203,35 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 sm:space-y-6'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
         <div>
-          <h1 className='text-3xl font-bold'>Historia Clínica</h1>
-          <p className='text-muted-foreground mt-1'>
+          <h1 className='text-2xl sm:text-3xl font-bold'>Historia Clínica</h1>
+          <p className='text-muted-foreground mt-1 text-sm sm:text-base'>
             {history.metaData?.patientName || 'Paciente'}
           </p>
         </div>
-        <div className='flex items-center space-x-2'>
+        <div className='flex flex-wrap items-center gap-2 sm:gap-2'>
           {!isEditing ? (
             <>
-              <Button variant='outline' onClick={handleDownload}>
+              <Button variant='outline' onClick={handleDownload} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <Download className='w-4 h-4 mr-2' />
-                Descargar
+                <span className='hidden sm:inline'>Descargar</span>
+                <span className='sm:hidden'>Descargar</span>
               </Button>
-              <Button onClick={startEditing}>
+              <Button onClick={startEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <Edit2 className='w-4 h-4 mr-2' />
                 Editar
               </Button>
             </>
           ) : (
             <>
-              <Button variant='outline' onClick={cancelEditing}>
+              <Button variant='outline' onClick={cancelEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <X className='w-4 h-4 mr-2' />
                 Cancelar
               </Button>
-              <Button onClick={saveChanges} disabled={updateHistory.isPending}>
+              <Button onClick={saveChanges} disabled={updateHistory.isPending} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <Save className='w-4 h-4 mr-2' />
                 {updateHistory.isPending ? 'Guardando...' : 'Guardar'}
               </Button>

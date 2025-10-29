@@ -59,41 +59,43 @@ export function MedicalHistoriesDashboard({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Mis Historias Clínicas</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Mis Historias Clínicas</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Gestiona y revisa todas tus historias clínicas
           </p>
         </div>
         <Button
           onClick={onNewRecording}
           size="lg"
-          className="bg-teal-500 hover:bg-teal-600"
+          className="bg-teal-500 hover:bg-teal-600 w-full sm:w-auto text-sm sm:text-base"
         >
-          <Plus className="w-5 h-5 mr-2" />
-          Grabar Nueva Historia Clínica
+          <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+          <span className="hidden sm:inline">Grabar Nueva Historia Clínica</span>
+          <span className="sm:hidden">Nueva Grabación</span>
         </Button>
       </div>
 
       {/* Search and Filters */}
       <div className="space-y-4">
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Buscar por nombre de paciente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-9 sm:pl-10 text-sm sm:text-base"
             />
           </div>
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
+            className="text-sm sm:text-base"
           >
             <Filter className="w-4 h-4 mr-2" />
             Filtros
@@ -101,28 +103,30 @@ export function MedicalHistoriesDashboard({
         </div>
 
         {showFilters && (
-          <div className="flex items-end space-x-4 p-4 bg-muted rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4 p-3 sm:p-4 bg-muted rounded-lg">
             <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">
+              <label className="text-xs sm:text-sm font-medium mb-2 block">
                 Fecha Inicio
               </label>
               <Input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
             <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">
+              <label className="text-xs sm:text-sm font-medium mb-2 block">
                 Fecha Fin
               </label>
               <Input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
-            <Button variant="ghost" onClick={handleClearFilters}>
+            <Button variant="ghost" onClick={handleClearFilters} className="w-full sm:w-auto text-sm sm:text-base">
               Limpiar Filtros
             </Button>
           </div>
