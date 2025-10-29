@@ -2,11 +2,25 @@ import os
 import json
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.types import TypeDeserializer
 from datetime import datetime
 from decimal import Decimal
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('medical-histories')
+
+_type_deserializer = TypeDeserializer()
+_dynamodb_type_keys = {'S', 'N', 'M', 'L', 'BOOL', 'NULL', 'SS', 'NS', 'BS'}
+
+
+def _normalize_dynamodb_json(value):
+    if isinstance(value, dict):
+        if len(value) == 1 and next(iter(value)) in _dynamodb_type_keys:
+            return _type_deserializer.deserialize(value)
+        return {k: _normalize_dynamodb_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_dynamodb_json(item) for item in value]
+    return value
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -109,17 +123,19 @@ def lambda_handler(event, context):
         # Process items to extract relevant metadata
         histories = []
         for item in items:
+            metadata = _normalize_dynamodb_json(item.get('metaData', {}))
+
             history_data = {
                 'historyID': item.get('historyID'),
                 'doctorID': item.get('doctorID'),
                 'patientID': item.get('patientID'),
                 'recordingURL': item.get('recordingURL'),
                 'createdAt': item.get('createdAt'),
-                'metaData': item.get('metaData', {}),
+                'metaData': metadata,
             }
 
             # Extract key patient info from jsonData if available
-            json_data = item.get('jsonData', {})
+            json_data = _normalize_dynamodb_json(item.get('jsonData', {}))
             if json_data:
                 # Try to extract patient name from various possible locations
                 patient_name_from_json = (
@@ -138,6 +154,8 @@ def lambda_handler(event, context):
                     'symptoms': json_data.get('sintomas') or json_data.get('symptoms'),
                     'treatment': json_data.get('tratamiento') or json_data.get('treatment')
                 }
+
+            history_data['jsonData'] = json_data
 
             histories.append(history_data)
 

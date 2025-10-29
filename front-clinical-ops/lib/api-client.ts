@@ -7,6 +7,9 @@ const AUTH_API_BASE_URL =
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.clinicalops.co';
 
+const WEB_API_BASE_URL =
+  process.env.NEXT_PUBLIC_WEB_API_BASE_URL || 'https://web.clinicalops.co';
+
 function authRequestInterceptor(config: InternalAxiosRequestConfig) {
   if (config.headers) {
     config.headers.Accept = 'application/json';
@@ -68,5 +71,19 @@ api.interceptors.response.use(
   handleResponseError
 );
 
-// Legacy: Export authApi as default for backward compatibility
+// Web API Client (for web application features: medical histories, patients, recordings)
+export const webApi = Axios.create({
+  baseURL: WEB_API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+webApi.interceptors.request.use(authRequestInterceptor);
+webApi.interceptors.response.use(
+  (response) => response.data,
+  handleResponseError
+);
+
+// Legacy: Export api as default for backward compatibility
 export default api;

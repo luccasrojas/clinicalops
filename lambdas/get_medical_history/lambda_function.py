@@ -3,8 +3,23 @@ import json
 import boto3
 from decimal import Decimal
 
+from boto3.dynamodb.types import TypeDeserializer
+
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('medical-histories')
+
+_type_deserializer = TypeDeserializer()
+_dynamodb_type_keys = {'S', 'N', 'M', 'L', 'BOOL', 'NULL', 'SS', 'NS', 'BS'}
+
+
+def _normalize_dynamodb_json(value):
+    if isinstance(value, dict):
+        if len(value) == 1 and next(iter(value)) in _dynamodb_type_keys:
+            return _type_deserializer.deserialize(value)
+        return {k: _normalize_dynamodb_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_dynamodb_json(item) for item in value]
+    return value
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -53,6 +68,9 @@ def lambda_handler(event, context):
             }
 
         item = response['Item']
+        item['jsonData'] = _normalize_dynamodb_json(item.get('jsonData', {}))
+        if 'metaData' in item:
+            item['metaData'] = _normalize_dynamodb_json(item['metaData'])
 
         # Return success response with full data
         return {

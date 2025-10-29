@@ -24,7 +24,7 @@ export function Hero() {
             </h2>
           </div>
           <div className='flex justify-center md:justify-start'>
-            <Link href='/auth/register'>
+            <Link href='/auth/signup'>
               <Button
                 size='lg'
                 className='h-12 px-5 text-base hover:cursor-pointer hover:bg-primary/90 hover:scale-105 transition-all duration-200 ease-in-out'

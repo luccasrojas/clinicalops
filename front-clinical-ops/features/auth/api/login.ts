@@ -1,6 +1,6 @@
 import { authApi } from '@/lib/api-client';
 import { useMutation } from '@tanstack/react-query';
-import { LoginResponse } from '@/types/auth';
+import { LoginResponse } from '../types';
 
 export type LoginData = {
   email: string;
