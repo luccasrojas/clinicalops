@@ -41,7 +41,7 @@ logs/
 dist/
 build/
 *.egg-info/
-recording/
+/recording/
 # dependencies
 /node_modules
 /.pnp
@@ -107,4 +107,3 @@ next-env.d.ts
 stitch-examples/
 **/stitch-examples/
 stitch-examples
-
