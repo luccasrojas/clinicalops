@@ -31,7 +31,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
     setError(null)
 
     try {
-      const response = await fetch('https://auth.clinicalops.co/verify-email', {
+      const response = await fetch('https://x4s8t05ane.execute-api.us-east-1.amazonaws.com/prod/auth/verify-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

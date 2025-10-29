@@ -1,0 +1,32 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+import { MedicalHistoriesDashboard } from '@/features/medical-histories/components/medical-histories-dashboard';
+
+export default function HistoriasPage() {
+  const router = useRouter();
+  const { getDoctorID } = useAuth();
+  const doctorID = getDoctorID();
+
+  const handleNewRecording = () => {
+    router.push('/dashboard/grabacion');
+  };
+
+  if (!doctorID) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <MedicalHistoriesDashboard
+        doctorID={doctorID}
+        onNewRecording={handleNewRecording}
+      />
+    </div>
+  );
+}

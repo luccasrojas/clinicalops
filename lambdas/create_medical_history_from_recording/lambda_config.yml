@@ -1,0 +1,10 @@
+runtime: python3.11
+memory_size: 512
+timeout: 300
+handler: lambda_function.lambda_handler
+description: "Orchestrate medical history creation from recording (transcribe + generate record)"
+environment_variables:
+  HISTORIES_TABLE: "medical-histories"
+  DOCTORS_TABLE: "doctors"
+  PATIENTS_TABLE: "pacients"
+  AWS_REGION: "us-east-1"

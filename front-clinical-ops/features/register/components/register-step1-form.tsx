@@ -165,7 +165,7 @@ export function RegisterStep1Form() {
 
       <p className="text-sm text-center text-gray-600">
         ¿Ya tienes cuenta?{' '}
-        <a href="/login" className="text-blue-600 hover:underline">
+        <a href="/auth/login" className="text-blue-600 hover:underline">
           Inicia sesión aquí
         </a>
       </p>

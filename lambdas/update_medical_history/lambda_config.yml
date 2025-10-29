@@ -1,0 +1,9 @@
+runtime: python3.11
+memory_size: 512
+timeout: 30
+handler: lambda_function.lambda_handler
+description: "Update medical history and create version record"
+environment_variables:
+  HISTORIES_TABLE: "medical-histories"
+  VERSIONS_TABLE: "medical-histories-versions"
+  AWS_REGION: "us-east-1"
