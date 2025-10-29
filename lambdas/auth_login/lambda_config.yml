@@ -1,0 +1,9 @@
+runtime: python3.11
+memory_size: 256
+timeout: 10
+handler: lambda_function.lambda_handler
+description: Authenticate users with AWS Cognito and return JWT tokens
+environment_variables:
+  COGNITO_CLIENT_ID: "4o7ibv9hdvn25f0012hdj149gn"
+  COGNITO_CLIENT_SECRET: "1lv31uvm0bh7pbvs37qqsioisqbjeh67geiv5nsjr9eguu345u9e"
+  AWS_REGION: "us-east-1"

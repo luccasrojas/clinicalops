@@ -1,0 +1,10 @@
+runtime: python3.11
+memory_size: 256
+timeout: 15
+handler: lambda_function.lambda_handler
+description: Register new doctor in Cognito with basic information (Step 1)
+environment_variables:
+  COGNITO_CLIENT_ID: "4o7ibv9hdvn25f0012hdj149gn"
+  COGNITO_CLIENT_SECRET: "1lv31uvm0bh7pbvs37qqsioisqbjeh67geiv5nsjr9eguu345u9e"
+  COGNITO_USER_POOL_ID: "us-east-1_nuZ12lsNq"
+  AWS_REGION: "us-east-1"

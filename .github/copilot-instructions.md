@@ -208,9 +208,59 @@ handler: lambda_function.lambda_handler
 description: "Lambda function description"
 ```
 
-### Frontend Component Pattern
+### Frontend Architecture (Bulletproof React Pattern)
 
-**shadcn/ui components** in `components/ui/` follow this pattern:
+**Follow feature-based architecture** inspired by bulletproof-react:
+
+```
+front-clinical-ops/
+├── app/                 # Next.js App Router pages
+├── components/          # Shared components used across entire app
+│   └── ui/             # shadcn/ui components (Button, Dialog, etc.)
+├── features/           # Feature-based modules (MAIN ORGANIZATION)
+│   └── [feature-name]/
+│       ├── api/        # API calls & React Query hooks for this feature
+│       ├── components/ # Feature-specific components
+│       ├── hooks/      # Feature-specific hooks
+│       ├── stores/     # Feature-specific state (Zustand)
+│       ├── types/      # Feature-specific TypeScript types
+│       └── utils/      # Feature-specific utility functions
+├── hooks/              # Shared hooks used across entire app
+├── lib/                # Pre-configured libraries (api-client, react-query config)
+├── stores/             # Global state stores (Zustand)
+├── styles/             # Global styles and Tailwind config
+├── types/              # Shared TypeScript types
+└── utils/              # Shared utility functions
+```
+
+**Key principles:**
+
+1. **Feature isolation**: Each feature in `features/` is self-contained. Avoid cross-feature imports - compose features at the app level instead.
+2. **Unidirectional architecture**: Code flows `shared → features → app`. Features can import from shared (`components/`, `hooks/`, `lib/`, `utils/`), but not vice versa.
+3. **Colocation**: Keep code as close as possible to where it's used. Feature-specific code stays in `features/[name]/`.
+4. **API layer pattern**: Each feature's API calls follow this structure:
+   ```typescript
+   // features/medical-records/api/get-records.ts
+   export const getRecords = (params): Promise<RecordResponse> => {
+     return api.get('/records', { params });
+   };
+   
+   export const getRecordsQueryOptions = (params) => {
+     return queryOptions({
+       queryKey: ['records', params],
+       queryFn: () => getRecords(params),
+     });
+   };
+   
+   export const useRecords = ({ queryConfig, ...params }) => {
+     return useQuery({
+       ...getRecordsQueryOptions(params),
+       ...queryConfig,
+     });
+   };
+   ```
+
+**shadcn/ui component pattern** in `components/ui/`:
 
 ```tsx
 // Use cva for variant styling
@@ -231,10 +281,14 @@ function Component({ asChild = false, ...props }) {
 
 **Import aliases** (from `tsconfig.json`):
 
-- `@/components` → `components/`
+- `@/components` → `components/` (shared only)
+- `@/features` → `features/`
 - `@/lib` → `lib/`
 - `@/styles` → `styles/`
-- `@/hooks` → `hooks/`
+- `@/hooks` → `hooks/` (shared only)
+- `@/stores` → `stores/`
+- `@/types` → `types/`
+- `@/utils` → `utils/`
 
 ### FastAPI Pattern (Example/Reference only)
 
@@ -262,13 +316,22 @@ To add endpoints: Create router in `routers/`, logic in `modules/`, register in 
 - Use `cn()` utility from `@/lib/utils` for className merging
 - Tailwind utilities preferred over custom CSS
 - Centralize shared styles in `styles/globals.css` using CSS variables
+- **Feature-based organization**: Place feature-specific code in `features/[feature-name]/` (see Frontend Architecture section)
+- **Avoid cross-feature imports**: Features should not import from other features, only from shared folders
+- **API calls pattern**: Define fetcher function, queryOptions, and custom hook for each endpoint (see API layer example)
+- **Colocation**: Keep components, hooks, types, and utils as close as possible to where they're used
 
 ## Testing
 
 - Mock AssemblyAI/OpenAI for deterministic offline tests
 - `pytest.mark.asyncio` for async handlers
 - Reference `fastapi-app/test_main.py` patterns for examples (when available)
-- Frontend: Colocate tests next to components (`Component.test.tsx`)
+- **Frontend testing approach:**
+  - **Integration tests > Unit tests**: Focus on testing features as users would interact with them
+  - **Colocate tests**: Place tests next to components (`Component.test.tsx`) or in feature `__tests__/` folders
+  - **Test behavior, not implementation**: Test what renders, not internal state details
+  - **Tools**: Vitest for unit/integration tests, Playwright for E2E
+  - **Mock API with MSW**: Use service workers to intercept HTTP requests during tests
 
 ## Deployment
 
@@ -312,4 +375,6 @@ aws cloudfront create-invalidation --profile admin-clinicalops --distribution-id
 - Temporal context uses hardcoded Spanish arrays (no `locale.setlocale()`)
 - AssemblyAI output format: `"SpeakerA: text\n\nSpeakerB: text\n\n"`
 - shadcn/ui dependencies may require matching versions (e.g., `@tanstack/react-query` v5 needs `@tanstack/react-query-devtools` v5)
+- **Do NOT import between features**: Features should be composed at the app level, not imported cross-feature
+- **Avoid barrel exports** in features: They prevent tree-shaking and hurt performance. Import files directly instead
 
