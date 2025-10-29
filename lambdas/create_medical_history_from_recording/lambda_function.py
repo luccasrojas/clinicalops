@@ -20,49 +20,21 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(obj)
 
 
-def lambda_handler(event, context):
+def process_recording_sync(history_id, doctor_id, recording_url, patient_id=None):
     """
-    Orchestrate the creation of a medical history from a recording
-
-    Expected input:
-    {
-        "doctorID": "string",
-        "recordingURL": "https://storage.clinicalops.co/doctors/{doctorID}/recordings/{file}",
-        "patientID": "string" (optional - will be created/extracted from transcription)
-    }
-
-    Process:
-    1. Call transcribe lambda with recordingURL
-    2. Get doctor's example_history from DynamoDB
-    3. Call create_medical_record lambda with transcription + example_history
-    4. Extract patient info from medical record
-    5. Create/update patient record if needed
-    6. Save medical history to DynamoDB
-    7. Return complete medical history
+    Process the recording synchronously - this is the heavy lifting
+    Called asynchronously by lambda_handler
     """
     try:
-        # Parse input
-        if isinstance(event.get('body'), str):
-            body = json.loads(event['body'])
-        else:
-            body = event.get('body', {})
+        print(f"Processing history {history_id} for doctor {doctor_id}")
 
-        doctor_id = body.get('doctorID')
-        recording_url = body.get('recordingURL')
-        patient_id = body.get('patientID')
-
-        # Validate required fields
-        if not doctor_id or not recording_url:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({'error': 'doctorID and recordingURL are required'})
-            }
-
-        print(f"Starting medical history creation for doctor {doctor_id}")
+        # Update status to processing
+        histories_table.update_item(
+            Key={'historyID': history_id},
+            UpdateExpression='SET #status = :status',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={':status': 'processing'}
+        )
 
         # Step 1: Transcribe audio
         print("Step 1: Transcribing audio...")
@@ -86,14 +58,7 @@ def lambda_handler(event, context):
         doctor_response = doctors_table.get_item(Key={'doctorID': doctor_id})
 
         if 'Item' not in doctor_response:
-            return {
-                'statusCode': 404,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({'error': 'Doctor not found'})
-            }
+            raise Exception('Doctor not found')
 
         doctor_data = doctor_response['Item']
         example_history = doctor_data.get('example_history', {})
@@ -154,9 +119,8 @@ def lambda_handler(event, context):
         else:
             print(f"Using existing patient: {patient_id}")
 
-        # Step 6: Save medical history to DynamoDB
-        print("Step 6: Saving medical history...")
-        history_id = str(uuid.uuid4())
+        # Step 6: Update medical history with results
+        print("Step 6: Updating medical history...")
         timestamp = datetime.utcnow().isoformat() + 'Z'
 
         # Extract metadata for easier querying
@@ -166,21 +130,134 @@ def lambda_handler(event, context):
             'createdBy': doctor_data.get('name', '') + ' ' + doctor_data.get('lastName', '')
         }
 
+        histories_table.update_item(
+            Key={'historyID': history_id},
+            UpdateExpression='SET patientID = :pid, jsonData = :jdata, metaData = :meta, #status = :status, updatedAt = :updated, transcription = :trans',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={
+                ':pid': patient_id,
+                ':jdata': medical_record_json,
+                ':meta': metadata,
+                ':status': 'completed',
+                ':updated': timestamp,
+                ':trans': transcription
+            }
+        )
+        print(f"Medical history {history_id} completed successfully")
+
+    except Exception as e:
+        print(f"Error processing history {history_id}: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Update status to failed
+        try:
+            histories_table.update_item(
+                Key={'historyID': history_id},
+                UpdateExpression='SET #status = :status, errorMessage = :error, updatedAt = :updated',
+                ExpressionAttributeNames={'#status': 'status'},
+                ExpressionAttributeValues={
+                    ':status': 'failed',
+                    ':error': str(e),
+                    ':updated': datetime.utcnow().isoformat() + 'Z'
+                }
+            )
+        except Exception as update_error:
+            print(f"Failed to update error status: {update_error}")
+
+
+def lambda_handler(event, context):
+    """
+    Create a medical history record immediately and process asynchronously
+
+    Expected input:
+    {
+        "doctorID": "string",
+        "recordingURL": "https://storage.clinicalops.co/doctors/{doctorID}/recordings/{file}",
+        "patientID": "string" (optional)
+    }
+
+    Returns immediately with historyID and status "pending"
+    The actual processing happens asynchronously
+    """
+    try:
+        # Parse input
+        if isinstance(event.get('body'), str):
+            body = json.loads(event['body'])
+        else:
+            body = event.get('body', {})
+
+        # Check if this is an async processing call (internal)
+        if body.get('_async_process'):
+            # This is the async worker invocation
+            history_id = body.get('historyID')
+            doctor_id = body.get('doctorID')
+            recording_url = body.get('recordingURL')
+            patient_id = body.get('patientID')
+
+            process_recording_sync(history_id, doctor_id, recording_url, patient_id)
+
+            return {
+                'statusCode': 200,
+                'body': json.dumps({'message': 'Processing completed'})
+            }
+
+        # Normal API call - create record and process async
+        doctor_id = body.get('doctorID')
+        recording_url = body.get('recordingURL')
+        patient_id = body.get('patientID')
+
+        # Validate required fields
+        if not doctor_id or not recording_url:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({'error': 'doctorID and recordingURL are required'})
+            }
+
+        print(f"Creating medical history record for doctor {doctor_id}")
+
+        # Create history record immediately with status "pending"
+        history_id = str(uuid.uuid4())
+        timestamp = datetime.utcnow().isoformat() + 'Z'
+
         medical_history = {
             'historyID': history_id,
             'doctorID': doctor_id,
-            'patientID': patient_id,
             'recordingURL': recording_url,
-            'jsonData': medical_record_json,
-            'metaData': metadata,
+            'status': 'pending',
             'createdAt': timestamp,
             'updatedAt': timestamp
         }
 
-        histories_table.put_item(Item=medical_history)
-        print(f"Medical history created: {history_id}")
+        if patient_id:
+            medical_history['patientID'] = patient_id
 
-        # Return success response
+        histories_table.put_item(Item=medical_history)
+        print(f"Medical history created: {history_id} with status 'pending'")
+
+        # Invoke self asynchronously to process the recording
+        async_payload = {
+            'body': json.dumps({
+                '_async_process': True,
+                'historyID': history_id,
+                'doctorID': doctor_id,
+                'recordingURL': recording_url,
+                'patientID': patient_id
+            })
+        }
+
+        lambda_client.invoke(
+            FunctionName=context.function_name,
+            InvocationType='Event',  # Asynchronous invocation
+            Payload=json.dumps(async_payload)
+        )
+        print(f"Async processing initiated for history {history_id}")
+
+        # Return immediately
         return {
             'statusCode': 200,
             'headers': {
@@ -189,7 +266,7 @@ def lambda_handler(event, context):
             },
             'body': json.dumps({
                 'history': medical_history,
-                'message': 'Medical history created successfully'
+                'message': 'Medical history creation initiated. Processing in background.'
             }, cls=DecimalEncoder)
         }
 
