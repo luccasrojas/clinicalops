@@ -53,7 +53,7 @@ export function RegisterStep2Form() {
       reset();
 
       // Redirect to login
-      router.push('/login?registered=true');
+      router.push('/auth/login?registered=true');
     } catch (err) {
       setError(
         err instanceof Error
@@ -139,7 +139,7 @@ Examen Físico: TA 150/95 mmHg, FC 95 lpm, FR 18 rpm, SpO2 96% AA..."
           variant="outline"
           onClick={() => {
             reset();
-            router.push('/register');
+            router.push('/auth/signup');
           }}
           disabled={isSubmitting}
           className="flex-1"

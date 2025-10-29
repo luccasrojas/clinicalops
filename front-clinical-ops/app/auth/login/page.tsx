@@ -1,37 +1,42 @@
-import { LoginForm } from '@/components/login/login-form'
+import { LoginForm } from '@/features/auth/components/login-form'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Suspense } from 'react'
 
 export default function LoginPage() {
   return (
     <div className='grid min-h-svh lg:grid-cols-2'>
       <div className='flex flex-col gap-4 p-6 md:p-10'>
         <div className='flex justify-center gap-2 md:justify-start'>
-          <Link href='/' className='flex items-center gap-2 font-medium'>
+          <Link href='/' className='flex items-center gap-2 font-medium text-lg'>
             <Image
-              src='/med-data.jpg'
+              src='/LogoClinicalops.png'
               alt='ClinicalOps Logo'
-              width={24}
-              height={24}
-              className='size-6'
+              width={40}
+              height={40}
+              className='size-10'
             />
-            Clinicalops
+            <span className='font-semibold'>Clinicalops</span>
           </Link>
         </div>
         <div className='flex flex-1 items-center justify-center'>
-          <div className='w-full max-w-xs'>
-            <LoginForm />
+          <div className='w-full max-w-md'>
+            <Suspense fallback={<div className="text-center">Cargando...</div>}>
+              <LoginForm />
+            </Suspense>
           </div>
         </div>
       </div>
-      <div className='bg-muted relative hidden lg:block'>
-        <Image
-          width={800}
-          height={600}
-          src='/placeholder.svg'
-          alt='Image'
-          className='absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale'
-        />
+      <div className='relative hidden lg:block bg-gradient-to-br from-blue-50 to-blue-100'>
+        <div className='absolute inset-0 flex items-center justify-center p-12'>
+          <Image
+            width={600}
+            height={600}
+            src='/med-data.jpg'
+            alt='Medical professional analyzing data'
+            className='rounded-2xl shadow-2xl object-cover w-full h-full'
+          />
+        </div>
       </div>
     </div>
   )

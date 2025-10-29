@@ -44,7 +44,7 @@ export function LoginForm({
 
         <FieldDescription className='text-center'>
           No tienes una cuenta?{' '}
-          <a href='/register' className='underline underline-offset-4'>
+          <a href='/auth/signup' className='underline underline-offset-4'>
             Regístrate
           </a>
         </FieldDescription>
