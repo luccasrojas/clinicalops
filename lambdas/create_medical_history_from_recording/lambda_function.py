@@ -1,31 +1,20 @@
 import os
 import json
 import boto3
+import sys
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from boto3.dynamodb.types import TypeDeserializer
+# Add utils to path for editorjs_converter
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from utils.editorjs_converter import json_to_editorjs
 
 lambda_client = boto3.client('lambda')
 dynamodb = boto3.resource('dynamodb')
 histories_table = dynamodb.Table('medical-histories')
 doctors_table = dynamodb.Table('doctors')
 patients_table = dynamodb.Table('pacients')
-
-_type_deserializer = TypeDeserializer()
-_dynamodb_type_keys = {'S', 'N', 'M', 'L', 'BOOL', 'NULL', 'SS', 'NS', 'BS'}
-
-
-def _normalize_dynamodb_json(value):
-    """Convert DynamoDB-encoded JSON to native Python structures recursively."""
-    if isinstance(value, dict):
-        if len(value) == 1 and next(iter(value)) in _dynamodb_type_keys:
-            return _type_deserializer.deserialize(value)
-        return {k: _normalize_dynamodb_json(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_normalize_dynamodb_json(item) for item in value]
-    return value
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -146,13 +135,18 @@ def process_recording_sync(history_id, doctor_id, recording_url, patient_id=None
             'createdBy': doctor_data.get('name', '') + ' ' + doctor_data.get('lastName', '')
         }
 
+        # Generate editorData from jsonData
+        print("Generating editorData from jsonData...")
+        editor_data = json_to_editorjs(medical_record_json)
+
         histories_table.update_item(
             Key={'historyID': history_id},
-            UpdateExpression='SET patientID = :pid, jsonData = :jdata, metaData = :meta, #status = :status, updatedAt = :updated, transcription = :trans',
+            UpdateExpression='SET patientID = :pid, jsonData = :jdata, editorData = :edata, metaData = :meta, #status = :status, updatedAt = :updated, transcription = :trans',
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={
                 ':pid': patient_id,
                 ':jdata': medical_record_json,
+                ':edata': editor_data,
                 ':meta': metadata,
                 ':status': 'completed',
                 ':updated': timestamp,
