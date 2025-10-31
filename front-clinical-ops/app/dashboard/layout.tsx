@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Home, FileText, Users, Settings, Mic, LogOut } from 'lucide-react';
+import { Home, FileText, Users, Settings, Mic, LogOut, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function DashboardLayout({
   children,
@@ -16,12 +17,18 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const navItems = [
     {
@@ -54,73 +61,131 @@ export default function DashboardLayout({
     );
   }
 
-  return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-card border-r border-border flex flex-col">
-        {/* User Info */}
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-              {user.name?.charAt(0) || 'D'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {user.name || 'Doctor'}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user.email}
-              </p>
-            </div>
+  const SidebarContent = () => (
+    <>
+      {/* User Info */}
+      <div className="p-4 md:p-6 border-b border-border">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
+            {user.name?.charAt(0) || 'D'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {user.name || 'Doctor'}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user.email}
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors',
-                  isActive
-                    ? 'bg-teal-500/10 text-teal-600'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm font-medium">{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
+      {/* Navigation */}
+      <nav className="flex-1 p-3 md:p-4 space-y-1">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors',
+                isActive
+                  ? 'bg-teal-500/10 text-teal-600'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-sm font-medium">{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
-        {/* Nueva Grabación Button */}
-        <div className="p-4 border-t border-border">
-          <Button
-            onClick={() => router.push('/dashboard/grabacion')}
-            className="w-full bg-teal-500 hover:bg-teal-600"
-            size="lg"
-          >
-            <Mic className="w-5 h-5 mr-2" />
-            Nueva Grabación
-          </Button>
-        </div>
+      {/* Nueva Grabación Button */}
+      <div className="p-3 md:p-4 border-t border-border">
+        <Button
+          onClick={() => router.push('/dashboard/grabacion')}
+          className="w-full bg-teal-500 hover:bg-teal-600"
+          size="lg"
+        >
+          <Mic className="w-5 h-5 mr-2" />
+          Nueva Grabación
+        </Button>
+      </div>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-border">
+      {/* Logout */}
+      <div className="p-3 md:p-4 border-t border-border">
+        <Button
+          variant="ghost"
+          onClick={logout}
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+        >
+          <LogOut className="w-5 h-5 mr-3" />
+          Cerrar Sesión
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Mobile Header */}
+      <header className="lg:hidden sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+              {user.name?.charAt(0) || 'D'}
+            </div>
+            <span className="font-semibold text-base">ClinicalOps</span>
+          </div>
           <Button
             variant="ghost"
-            onClick={logout}
-            className="w-full justify-start text-muted-foreground hover:text-foreground"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle menu"
           >
-            <LogOut className="w-5 h-5 mr-3" />
-            Cerrar Sesión
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </Button>
         </div>
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="lg:hidden fixed inset-0 z-40 bg-black/50"
+            />
+
+            {/* Sliding Sidebar */}
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="lg:hidden fixed left-0 top-16 bottom-0 z-50 w-72 bg-card border-r border-border flex flex-col"
+            >
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex lg:w-64 bg-card border-r border-border flex-col shrink-0">
+        <SidebarContent />
       </aside>
 
       {/* Main Content */}

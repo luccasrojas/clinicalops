@@ -162,12 +162,12 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 sm:space-y-6'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
         <div>
-          <h1 className='text-3xl font-bold'>Historia Clínica</h1>
-          <p className='text-muted-foreground mt-1'>
+          <h1 className='text-2xl sm:text-3xl font-bold'>Historia Clínica</h1>
+          <p className='text-muted-foreground mt-1 text-sm sm:text-base'>
             {history.metaData?.patientName || 'Paciente'}
           </p>
         </div>
@@ -182,7 +182,7 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
                 <Download className='w-4 h-4 mr-2' />
                 Descargar JSON
               </Button>
-              <Button onClick={startEditing}>
+              <Button onClick={startEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <Edit2 className='w-4 h-4 mr-2' />
                 Editar
               </Button>
@@ -190,11 +190,11 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
           )}
           {isEditing && (
             <>
-              <Button variant='outline' onClick={cancelEditing}>
+              <Button variant='outline' onClick={cancelEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <X className='w-4 h-4 mr-2' />
                 Cancelar
               </Button>
-              <Button onClick={saveChanges} disabled={updateHistory.isPending}>
+              <Button onClick={saveChanges} disabled={updateHistory.isPending} className='flex-1 sm:flex-none text-sm sm:text-base'>
                 <Save className='w-4 h-4 mr-2' />
                 {updateHistory.isPending ? 'Guardando...' : 'Guardar'}
               </Button>

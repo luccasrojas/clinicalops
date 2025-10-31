@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import EditorJS, { OutputData } from '@editorjs/editorjs'
+// @ts-ignore - Type definitions are incomplete for these plugins
 import Header from '@editorjs/header'
+// @ts-ignore - Type definitions are incomplete for these plugins
 import List from '@editorjs/list'
-// @ts-ignore - Paragraph comes bundled with EditorJS
-import Paragraph from '@editorjs/paragraph'
 
 type EditorMedicalHistoryProps = {
   data?: OutputData
@@ -66,6 +66,7 @@ export function EditorMedicalHistory({
       },
       tools: {
         header: {
+          // @ts-ignore - Type definitions are incomplete
           class: Header,
           config: {
             placeholder: 'Ingrese un título...',
@@ -73,14 +74,8 @@ export function EditorMedicalHistory({
             defaultLevel: 2,
           },
         },
-        paragraph: {
-          class: Paragraph,
-          inlineToolbar: true,
-          config: {
-            placeholder: 'Ingrese el contenido...',
-          },
-        },
         list: {
+          // @ts-ignore - Type definitions are incomplete
           class: List,
           inlineToolbar: true,
           config: {
