@@ -1,12 +1,8 @@
 import os
 import json
 import boto3
-import sys
 from decimal import Decimal
-
-# Add utils to path for editorjs_converter
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils.editorjs_converter import json_to_editorjs
+from editorjs_converter import json_to_editorjs
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('medical-histories')

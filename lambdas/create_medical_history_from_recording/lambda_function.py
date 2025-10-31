@@ -1,14 +1,10 @@
 import os
 import json
 import boto3
-import sys
 import uuid
 from datetime import datetime
 from decimal import Decimal
-
-# Add utils to path for editorjs_converter
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils.editorjs_converter import json_to_editorjs
+from editorjs_converter import json_to_editorjs
 
 lambda_client = boto3.client('lambda')
 dynamodb = boto3.resource('dynamodb')
