@@ -1,9 +1,21 @@
+export type EditorJsBlock = {
+  type: string;
+  data: Record<string, any>;
+};
+
+export type EditorJsData = {
+  time: number;
+  blocks: EditorJsBlock[];
+  version: string;
+};
+
 export type MedicalHistory = {
   historyID: string;
   doctorID: string;
   patientID: string;
   recordingURL: string;
   jsonData: Record<string, any>;
+  editorData?: EditorJsData;  // Editor.js format for rich editing
   metaData: {
     patientName?: string;
     diagnosis?: string;
@@ -41,7 +53,8 @@ export type SingleHistoryResponse = {
 
 export type UpdateMedicalHistoryRequest = {
   historyID: string;
-  jsonData: Record<string, any>;
+  jsonData?: Record<string, any>;
+  editorData?: EditorJsData;
   metaData?: Record<string, any>;
 };
 
