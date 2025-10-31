@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Edit2, Save, X, Download } from 'lucide-react'
+import { Edit2, Save, X, Download, FileJson } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { useMedicalHistory } from '../api/get-medical-history'
 import { useUpdateMedicalHistory } from '../api/update-medical-history'
-import type { SingleHistoryResponse } from '../types'
+import { EditorMedicalHistory } from './editor-medical-history'
+import type { SingleHistoryResponse, EditorJsData } from '../types'
 
 type MedicalHistoryViewerProps = {
   historyID: string
@@ -19,7 +18,8 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   const updateHistory = useUpdateMedicalHistory()
 
   const [isEditing, setIsEditing] = useState(false)
-  const [editedData, setEditedData] = useState<Record<string, any>>({})
+  const [editedEditorData, setEditedEditorData] = useState<EditorJsData | null>(null)
+  const [viewMode, setViewMode] = useState<'editor' | 'json'>('editor')
 
   const history = (data as SingleHistoryResponse | undefined)?.history
 
@@ -45,29 +45,44 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   }
 
   const startEditing = () => {
-    setEditedData(JSON.parse(JSON.stringify(history.jsonData)))
+    // Use editorData if available, otherwise empty
+    if (history.editorData) {
+      setEditedEditorData(JSON.parse(JSON.stringify(history.editorData)))
+    } else {
+      setEditedEditorData({
+        time: Date.now(),
+        blocks: [],
+        version: '2.31.0'
+      })
+    }
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
-    setEditedData({})
+    setEditedEditorData(null)
     setIsEditing(false)
   }
 
   const saveChanges = async () => {
+    if (!editedEditorData) return
+
     try {
       await updateHistory.mutateAsync({
         historyID,
-        jsonData: editedData,
+        editorData: editedEditorData,
       })
       setIsEditing(false)
-      setEditedData({})
+      setEditedEditorData(null)
     } catch (error) {
       console.error('Error updating history:', error)
     }
   }
 
-  const handleDownload = () => {
+  const handleEditorChange = (data: EditorJsData) => {
+    setEditedEditorData(data)
+  }
+
+  const handleDownloadJson = () => {
     const blob = new Blob([JSON.stringify(history.jsonData, null, 2)], {
       type: 'application/json',
     })
@@ -81,124 +96,68 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
     URL.revokeObjectURL(url)
   }
 
-  const renderValue = (value: any, path: string[] = []): React.ReactNode => {
-    if (value === null || value === undefined) {
-      return (
-        <span className='text-muted-foreground italic'>No especificado</span>
-      )
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        return <span className='text-muted-foreground italic'>Sin datos</span>
-      }
-      return (
-        <ul className='list-disc list-inside space-y-1'>
-          {value.map((item, index) => (
-            <li key={index} className='text-sm'>
-              {typeof item === 'object'
-                ? renderValue(item, [...path, String(index)])
-                : String(item)}
-            </li>
-          ))}
-        </ul>
-      )
-    }
-
-    if (typeof value === 'object') {
-      return (
-        <div className='space-y-3 pl-4 border-l-2 border-muted'>
-          {Object.entries(value).map(([key, val]) => (
-            <div key={key}>
-              <span className='text-sm font-medium capitalize'>
-                {key.replace(/_/g, ' ')}:
-              </span>
-              <div className='mt-1'>{renderValue(val, [...path, key])}</div>
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    return <p className='text-sm'>{String(value)}</p>
+  const toggleViewMode = () => {
+    setViewMode(prev => prev === 'editor' ? 'json' : 'editor')
   }
 
-  const renderEditableValue = (
-    key: string,
-    value: any,
-    path: string[],
-  ): React.ReactNode => {
-    const currentPath = [...path, key]
-
-    const updateValue = (newValue: any) => {
-      const newData = { ...editedData }
-      let current: any = newData
-
-      for (let i = 0; i < currentPath.length - 1; i++) {
-        current = current[currentPath[i]]
+  const renderJsonView = () => {
+    const renderValue = (value: any, path: string[] = []): React.ReactNode => {
+      if (value === null || value === undefined) {
+        return (
+          <span className='text-muted-foreground italic'>No especificado</span>
+        )
       }
 
-      current[currentPath[currentPath.length - 1]] = newValue
-      setEditedData(newData)
-    }
-
-    const getCurrentValue = () => {
-      let current = editedData
-      for (const key of currentPath) {
-        current = current?.[key]
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          return <span className='text-muted-foreground italic'>Sin datos</span>
+        }
+        return (
+          <ul className='list-disc list-inside space-y-1'>
+            {value.map((item, index) => (
+              <li key={index} className='text-sm'>
+                {typeof item === 'object'
+                  ? renderValue(item, [...path, String(index)])
+                  : String(item)}
+              </li>
+            ))}
+          </ul>
+        )
       }
-      return current
-    }
 
-    if (Array.isArray(value)) {
-      return (
-        <Textarea
-          value={JSON.stringify(getCurrentValue(), null, 2)}
-          onChange={(e) => {
-            try {
-              updateValue(JSON.parse(e.target.value))
-            } catch {
-              // Invalid JSON, don't update
-            }
-          }}
-          rows={4}
-          className='font-mono text-sm'
-        />
-      )
-    }
+      if (typeof value === 'object') {
+        return (
+          <div className='space-y-3 pl-4 border-l-2 border-muted'>
+            {Object.entries(value).map(([key, val]) => (
+              <div key={key}>
+                <span className='text-sm font-medium capitalize'>
+                  {key.replace(/_/g, ' ')}:
+                </span>
+                <div className='mt-1'>{renderValue(val, [...path, key])}</div>
+              </div>
+            ))}
+          </div>
+        )
+      }
 
-    if (typeof value === 'object' && value !== null) {
-      return (
-        <div className='space-y-3 pl-4 border-l-2 border-muted'>
-          {Object.entries(value).map(([k, v]) => (
-            <div key={k}>
-              <label className='text-sm font-medium capitalize block mb-1'>
-                {k.replace(/_/g, ' ')}:
-              </label>
-              {renderEditableValue(k, v, currentPath)}
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    const currentValue = String(getCurrentValue() ?? '')
-
-    if (currentValue.length > 100) {
-      return (
-        <Textarea
-          value={currentValue}
-          onChange={(e) => updateValue(e.target.value)}
-          rows={4}
-        />
-      )
+      return <p className='text-sm'>{String(value)}</p>
     }
 
     return (
-      <Input
-        value={currentValue}
-        onChange={(e) => updateValue(e.target.value)}
-      />
+      <div className='space-y-4'>
+        {Object.entries(history.jsonData).map(([key, value]) => (
+          <Card key={key}>
+            <CardHeader>
+              <CardTitle className='capitalize'>
+                {key.replace(/_/g, ' ')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderValue(value)}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     )
   }
 
@@ -213,18 +172,23 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
           </p>
         </div>
         <div className='flex items-center space-x-2'>
-          {!isEditing ? (
+          {!isEditing && (
             <>
-              <Button variant='outline' onClick={handleDownload}>
+              <Button variant='outline' onClick={toggleViewMode} size='sm'>
+                <FileJson className='w-4 h-4 mr-2' />
+                {viewMode === 'editor' ? 'Ver JSON' : 'Ver Editor'}
+              </Button>
+              <Button variant='outline' onClick={handleDownloadJson}>
                 <Download className='w-4 h-4 mr-2' />
-                Descargar
+                Descargar JSON
               </Button>
               <Button onClick={startEditing}>
                 <Edit2 className='w-4 h-4 mr-2' />
                 Editar
               </Button>
             </>
-          ) : (
+          )}
+          {isEditing && (
             <>
               <Button variant='outline' onClick={cancelEditing}>
                 <X className='w-4 h-4 mr-2' />
@@ -240,22 +204,25 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
       </div>
 
       {/* Medical History Content */}
-      <div className='space-y-4'>
-        {Object.entries(history.jsonData).map(([key, value]) => (
-          <Card key={key}>
-            <CardHeader>
-              <CardTitle className='capitalize'>
-                {key.replace(/_/g, ' ')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isEditing
-                ? renderEditableValue(key, value, [])
-                : renderValue(value)}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {viewMode === 'editor' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {isEditing ? 'Editando Historia Clínica' : 'Historia Clínica'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EditorMedicalHistory
+              data={isEditing ? editedEditorData || undefined : history.editorData}
+              readOnly={!isEditing}
+              onSave={handleEditorChange}
+              className='min-h-[400px]'
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        renderJsonView()
+      )}
 
       {/* Metadata */}
       <Card>
