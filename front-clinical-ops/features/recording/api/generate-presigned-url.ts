@@ -1,21 +1,11 @@
-import { api } from '@/lib/api-client';
+import { webApi } from '@/lib/api-client';
 import { useMutation } from '@tanstack/react-query';
-
-type GeneratePresignedUrlRequest = {
-  doctorID: string;
-  fileName: string;
-  contentType: string;
-};
-
-type GeneratePresignedUrlResponse = {
-  uploadURL: string;
-  fileKey: string;
-};
+import type { PresignedUrlRequest, PresignedUrlResponse } from '../types';
 
 export const generatePresignedUrl = (
-  data: GeneratePresignedUrlRequest
-): Promise<GeneratePresignedUrlResponse> => {
-  return api.post('/generate-presigned-url', data);
+  data: PresignedUrlRequest
+): Promise<PresignedUrlResponse> => {
+  return webApi.post('/presigned-url', data);
 };
 
 export const useGeneratePresignedUrl = () => {

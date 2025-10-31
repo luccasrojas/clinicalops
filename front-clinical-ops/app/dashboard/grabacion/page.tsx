@@ -27,7 +27,7 @@ export default function RecordingPage() {
   }
 
   return (
-    <div className='flex min-h-screen items-center justify-center px-4 py-16'>
+    <div className='flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16'>
       <RecordingInterface
         doctorID={doctorID}
         onComplete={handleComplete}

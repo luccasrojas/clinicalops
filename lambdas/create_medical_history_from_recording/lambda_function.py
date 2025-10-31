@@ -66,7 +66,16 @@ def process_recording_sync(history_id, doctor_id, recording_url, patient_id=None
             raise Exception('Doctor not found')
 
         doctor_data = doctor_response['Item']
-        example_history = doctor_data.get('example_history', {})
+        # Parse example_history from JSON string to dict
+        example_history_str = doctor_data.get('example_history', '{}')
+        if isinstance(example_history_str, str):
+            try:
+                example_history = json.loads(example_history_str)
+            except json.JSONDecodeError:
+                print(f"Warning: Could not parse example_history, using empty dict")
+                example_history = {}
+        else:
+            example_history = example_history_str
 
         # Step 3: Create medical record
         print("Step 3: Generating medical record with AI...")

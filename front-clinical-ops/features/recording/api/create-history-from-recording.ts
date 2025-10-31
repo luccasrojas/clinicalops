@@ -1,38 +1,24 @@
-import { api } from '@/lib/api-client';
-import { useMutation } from '@tanstack/react-query';
-
-type CreateHistoryFromRecordingRequest = {
-  doctorID: string;
-  recordingURL: string;
-  patientID?: string;
-};
-
-type HistoryStatus = 'pending' | 'processing' | 'completed' | 'failed';
-
-type MedicalHistory = {
-  historyID: string;
-  doctorID: string;
-  recordingURL: string;
-  status: HistoryStatus;
-  createdAt: string;
-  updatedAt: string;
-  patientID?: string;
-  errorMessage?: string;
-};
-
-type CreateHistoryFromRecordingResponse = {
-  history: MedicalHistory;
-  message: string;
-};
+import { webApi } from '@/lib/api-client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type {
+  CreateHistoryFromRecordingRequest,
+  CreateHistoryFromRecordingResponse,
+} from '../types';
 
 export const createHistoryFromRecording = (
   data: CreateHistoryFromRecordingRequest
 ): Promise<CreateHistoryFromRecordingResponse> => {
-  return api.post('/create-medical-history-from-recording', data);
+  return webApi.post('/medical-histories', data);
 };
 
 export const useCreateHistoryFromRecording = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: createHistoryFromRecording,
+    onSuccess: () => {
+      // Invalidate medical histories list to refetch
+      queryClient.invalidateQueries({ queryKey: ['medical-histories'] });
+    },
   });
 };

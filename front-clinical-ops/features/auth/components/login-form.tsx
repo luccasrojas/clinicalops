@@ -47,11 +47,11 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6 w-full px-2 sm:px-0">
       <div className="space-y-3">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bienvenido</h1>
-          <p className="text-gray-600">Ingresa a tu cuenta de ClinicalOps</p>
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Bienvenido</h1>
+          <p className="text-sm sm:text-base text-gray-600">Ingresa a tu cuenta de ClinicalOps</p>
         </div>
 
         <div className="space-y-2">
@@ -74,11 +74,11 @@ export function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
             <Label htmlFor="password" className="text-sm font-medium text-gray-700">
               Contraseña
             </Label>
-            <a href="#" className="text-sm text-blue-600 hover:underline">
+            <a href="#" className="text-xs sm:text-sm text-blue-600 hover:underline">
               ¿Olvidaste tu contraseña?
             </a>
           </div>
@@ -105,9 +105,9 @@ export function LoginForm() {
         </div>
       )}
 
-      <Button 
-        type="submit" 
-        className="w-full h-11 text-base font-medium bg-blue-600 hover:bg-blue-700" 
+      <Button
+        type="submit"
+        className="w-full h-10 sm:h-11 text-sm sm:text-base font-medium bg-blue-600 hover:bg-blue-700"
         disabled={isSubmitting}
       >
         {isSubmitting ? (
@@ -123,15 +123,15 @@ export function LoginForm() {
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-300"></div>
         </div>
-        <div className="relative flex justify-center text-sm">
+        <div className="relative flex justify-center text-xs sm:text-sm">
           <span className="px-2 bg-white text-gray-500">¿Nuevo en ClinicalOps?</span>
         </div>
       </div>
 
       <div className="text-center">
-        <a 
-          href="/auth/signup" 
-          className="inline-flex items-center justify-center w-full h-11 px-4 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+        <a
+          href="/auth/signup"
+          className="inline-flex items-center justify-center w-full h-10 sm:h-11 px-4 text-xs sm:text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
         >
           Crear una cuenta nueva
         </a>

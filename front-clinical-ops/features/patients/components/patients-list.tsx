@@ -51,18 +51,18 @@ export function PatientsList({ doctorID }: PatientsListProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Mis Pacientes</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Mis Pacientes</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             {count} paciente{count !== 1 ? 's' : ''} registrado
             {count !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {patients.map((patient) => (
           <Card
             key={patient.pacientID}
@@ -71,18 +71,18 @@ export function PatientsList({ doctorID }: PatientsListProps) {
               router.push(`/dashboard/historias?patientID=${patient.pacientID}`)
             }
           >
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between mb-4">
+            <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+              <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg capitalize">
+                  <h3 className="font-semibold text-base sm:text-lg capitalize">
                     {patient.nombre} {patient.apellido}
                   </h3>
                 </div>
               </div>
 
-              <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <div className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4" />
+                  <FileText className="w-4 h-4 flex-shrink-0" />
                   <span>
                     {patient.historyCount} historia
                     {patient.historyCount !== 1 ? 's' : ''} clínica
@@ -91,7 +91,7 @@ export function PatientsList({ doctorID }: PatientsListProps) {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
                   <span>
                     Última visita:{' '}
                     {format(new Date(patient.lastVisit), 'd MMM yyyy', {
