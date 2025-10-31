@@ -4,9 +4,9 @@ export type EditorJsBlock = {
 };
 
 export type EditorJsData = {
-  time: number;
+  time?: number;
   blocks: EditorJsBlock[];
-  version: string;
+  version?: string;
 };
 
 export type MedicalHistory = {
