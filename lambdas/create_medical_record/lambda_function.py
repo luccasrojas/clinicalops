@@ -90,7 +90,6 @@ def lambda_handler(event, context):
 
         # Get example format - can be 'example_format' or 'medical_record_example'
         medical_record_example = (
-            body.get('example_format') or
             body.get('medical_record_example') or
             CLINICAL_NOTE_EXAMPLE
         )

@@ -4,21 +4,27 @@ import assemblyai as aai
 
 ASSEMBLY_KEY = os.getenv("ASSEMBLY_KEY")
 
-def transcribe_audio(audio_url):
+def transcribe_audio(audio_url, diarization):
     aai.settings.api_key = ASSEMBLY_KEY
 
-    config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, speaker_labels=True, language_code="es", speakers_expected=2)
+    if diarization:
+        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, speaker_labels=diarization, language_code="es", speakers_expected=2)
+    else:
+        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, language_code="es")
 
     transcript = aai.Transcriber(config=config).transcribe(audio_url)
     if transcript.status == "error":
         raise RuntimeError(f"Transcription failed: {transcript.error}")
 
-    full_text = ""
-    for utterance in transcript.utterances:
-        speaker = f"Speaker{utterance.speaker}"
-        text = utterance.text
+    if diarization:
+        full_text = ""
+        for utterance in transcript.utterances:
+            speaker = f"Speaker{utterance.speaker}"
+            text = utterance.text
 
-        full_text += f"{speaker}: {text}\n\n"
+            full_text += f"{speaker}: {text}\n\n"
+    else:
+        full_text = transcript.text
 
     return full_text
 
@@ -31,6 +37,7 @@ def lambda_handler(event, context):
             body = event.get('body', event)  # Fallback to event itself for direct invocation
 
         audio_url = body.get('audio_url')
+        diarization = body.get('diarization', True)
 
         if not audio_url:
             return {
@@ -42,7 +49,7 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'audio_url is required'})
             }
 
-        transcribed_text = transcribe_audio(audio_url)
+        transcribed_text = transcribe_audio(audio_url, diarization)
 
         return {
             'statusCode': 200,
