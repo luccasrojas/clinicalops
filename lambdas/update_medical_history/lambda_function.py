@@ -9,22 +9,8 @@ dynamodb = boto3.resource('dynamodb')
 histories_table = dynamodb.Table('medical-histories')
 versions_table = dynamodb.Table('medical-histories-versions')
 
-# Define the standard order of sections for medical records
-SECTION_ORDER = [
-    'datos_personales',
-    'motivo_consulta',
-    'enfermedad_actual',
-    'antecedentes_relevantes',
-    'examen_fisico',
-    'paraclinicos_imagenes',
-    'impresion_diagnostica',
-    'analisis_clinico',
-    'plan_manejo',
-    'notas_calidad_datos'
-]
-
-# Define section display titles (customizable by users)
-DEFAULT_SECTION_TITLES = {
+# Common section titles (for reference, but sections can vary)
+COMMON_SECTION_TITLES = {
     'datos_personales': 'Datos personales',
     'motivo_consulta': 'Motivo consulta',
     'enfermedad_actual': 'Enfermedad actual',
@@ -36,6 +22,16 @@ DEFAULT_SECTION_TITLES = {
     'plan_manejo': 'Plan de manejo',
     'notas_calidad_datos': 'Notas de calidad de datos'
 }
+
+
+def _generate_title_from_key(key):
+    """Generate a human-readable title from a section key"""
+    # Check if we have a common title
+    if key in COMMON_SECTION_TITLES:
+        return COMMON_SECTION_TITLES[key]
+    
+    # Otherwise, convert snake_case to Title Case
+    return ' '.join(word.capitalize() for word in key.replace('_', ' ').split())
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -104,7 +100,7 @@ def lambda_handler(event, context):
 
         current_history = response['Item']
         current_json_data = current_history.get('jsonData', {})
-        current_section_titles = current_history.get('sectionTitles', DEFAULT_SECTION_TITLES.copy())
+        current_section_titles = current_history.get('sectionTitles', {})
 
         # Detect changes between current and new data
         changes = _detect_changes(current_json_data, new_json_data)
@@ -127,17 +123,20 @@ def lambda_handler(event, context):
         # Save version
         versions_table.put_item(Item=version_record)
 
-        # Merge custom section titles with defaults
-        merged_section_titles = DEFAULT_SECTION_TITLES.copy()
+        # Generate section titles for all sections in new data
+        # Preserve existing custom titles, generate defaults for new sections
+        merged_section_titles = current_section_titles.copy()
+        for section_key in new_json_data.keys():
+            if section_key not in merged_section_titles:
+                merged_section_titles[section_key] = _generate_title_from_key(section_key)
+        
+        # Update with any custom titles provided in the request
         merged_section_titles.update(section_titles)
 
-        # Ensure jsonData maintains proper section order
-        ordered_json_data = _order_sections(new_json_data)
-
-        # Update medical history with new data
+        # Update medical history with new data (preserve order from input)
         update_expression = "SET jsonData = :json, updatedAt = :updated, sectionTitles = :titles, versionCount = if_not_exists(versionCount, :zero) + :one"
         expression_values = {
-            ':json': ordered_json_data,
+            ':json': new_json_data,  # Preserve order as provided
             ':updated': timestamp,
             ':titles': merged_section_titles,
             ':zero': 0,
@@ -186,26 +185,6 @@ def lambda_handler(event, context):
             },
             'body': json.dumps({'error': 'Internal server error', 'details': str(e)})
         }
-
-
-def _order_sections(json_data):
-    """
-    Reorder sections according to SECTION_ORDER
-    Preserves sections not in the standard order at the end
-    """
-    ordered = {}
-    
-    # First, add sections in the standard order
-    for section in SECTION_ORDER:
-        if section in json_data:
-            ordered[section] = json_data[section]
-    
-    # Then add any additional sections not in the standard order
-    for key, value in json_data.items():
-        if key not in SECTION_ORDER:
-            ordered[key] = value
-    
-    return ordered
 
 
 def _detect_changes(old_data, new_data):
