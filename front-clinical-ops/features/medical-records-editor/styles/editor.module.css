@@ -1,0 +1,101 @@
+.editorWrapper {
+  --editor-border: hsl(180 40% 80%);
+  --editor-heading: hsl(180 100% 25%);
+  --editor-text: hsl(215 20% 20%);
+  --editor-muted: hsl(215 16% 47%);
+  --editor-selection: hsl(27 96% 54% / 0.25);
+  --editor-caret: hsl(27 96% 54%);
+  position: relative;
+  border: 1px solid var(--editor-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background-color: #fff;
+  color: var(--editor-text);
+}
+
+.editorWrapper :global(.editor-content) {
+  min-height: 400px;
+  line-height: 1.65;
+  caret-color: var(--editor-caret);
+}
+
+.editorWrapper :global(.editor-content *)::selection {
+  background-color: var(--editor-selection);
+}
+
+.editorWrapper :global(.clinical-paragraph) {
+  margin: 0.25rem 0;
+  text-indent: 0;
+  transition: background-color 0.2s ease;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-heading) {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--editor-heading);
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-list) {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-list::before) {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--editor-muted);
+}
+
+.editorWrapper :global(.clinical-paragraph.p-level-1) {
+  margin-left: 0.5rem;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-level-2) {
+  margin-left: 1rem;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-level-3) {
+  margin-left: 1.5rem;
+}
+
+.editorWrapper :global(.clinical-paragraph.p-level-4) {
+  margin-left: 2rem;
+}
+
+.editorWrapper :global(.editor-toolbar) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.editorWrapper :global(.editor-toolbar button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background-color: transparent;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.editorWrapper :global(.editor-toolbar button:hover) {
+  border-color: var(--editor-border);
+  background-color: hsl(180 20% 95%);
+}
+
+.editorWrapper :global(.editor-toolbar button.is-active) {
+  border-color: var(--editor-heading);
+  color: var(--editor-heading);
+  background-color: hsl(180 60% 95%);
+}

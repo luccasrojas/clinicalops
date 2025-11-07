@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.926.0",
     "@aws-sdk/client-lambda": "^3.926.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-label": "^2.1.7",
@@ -28,6 +29,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html-docx-js": "^0.1.0",
+    "jspdf": "^3.0.3",
+    "lodash.isequal": "^4.5.0",
     "lucide-react": "^0.548.0",
     "motion": "^12.23.24",
     "next": "16.0.0",

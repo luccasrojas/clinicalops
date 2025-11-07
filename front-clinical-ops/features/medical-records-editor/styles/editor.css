@@ -1,0 +1,138 @@
+/**
+ * Clinical Notes Editor Styles
+ *
+ * Provides hierarchical formatting for structured clinical notes
+ * with proper indentation, headings, and visual hierarchy.
+ */
+
+.clinical-note-tiptap-editor {
+  @apply w-full min-h-[500px] rounded-lg border border-gray-200 bg-white p-6;
+}
+
+.clinical-note-tiptap-editor .ProseMirror {
+  @apply outline-none min-h-[450px];
+
+  /* Custom caret color (brand orange) */
+  caret-color: #fa8f38;
+
+  /* Custom selection color */
+  ::selection {
+    background-color: rgba(250, 143, 56, 0.25);
+  }
+
+  /* Remove default focus outline */
+  &:focus {
+    outline: none;
+  }
+}
+
+/* Headings (JSON keys) */
+.clinical-note-tiptap-editor h1,
+.clinical-note-tiptap-editor h2,
+.clinical-note-tiptap-editor h3 {
+  @apply font-bold text-gray-900 uppercase;
+  letter-spacing: 0.025em;
+}
+
+.clinical-note-tiptap-editor h1 {
+  @apply text-lg mt-6 mb-2;
+  text-indent: 0.5em;
+}
+
+.clinical-note-tiptap-editor h2 {
+  @apply text-base mt-4 mb-2;
+  margin-left: 2em;
+}
+
+.clinical-note-tiptap-editor h3 {
+  @apply text-sm mt-3 mb-1;
+  text-indent: 4em;
+}
+
+/* Paragraphs with hierarchical indentation */
+.clinical-note-tiptap-editor p {
+  @apply text-gray-700 mb-2;
+  line-height: 1.6;
+}
+
+/* Level-based indentation */
+.clinical-note-tiptap-editor .p-level-1 {
+  margin-left: 0.75em;
+}
+
+.clinical-note-tiptap-editor .p-level-2 {
+  margin-left: 2.35em;
+}
+
+.clinical-note-tiptap-editor .p-level-3 {
+  text-indent: 4.35em;
+}
+
+.clinical-note-tiptap-editor .p-level-4 {
+  margin-left: 6em;
+}
+
+.clinical-note-tiptap-editor .p-level-5 {
+  margin-left: 7.5em;
+}
+
+/* Placeholder styles */
+.clinical-note-tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-gray-400;
+  content: attr(data-placeholder);
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+.clinical-note-tiptap-editor .ProseMirror h1.is-editor-empty:first-child::before,
+.clinical-note-tiptap-editor .ProseMirror h2.is-editor-empty:first-child::before,
+.clinical-note-tiptap-editor .ProseMirror h3.is-editor-empty:first-child::before {
+  @apply text-gray-400;
+  content: attr(data-placeholder);
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Read-only mode */
+.clinical-note-tiptap-editor.readonly-mode {
+  @apply bg-gray-50 cursor-default;
+}
+
+.clinical-note-tiptap-editor.readonly-mode .ProseMirror {
+  @apply cursor-default;
+}
+
+/* Focus state for edit mode */
+.clinical-note-tiptap-editor:not(.readonly-mode):focus-within {
+  @apply ring-2 ring-orange-500 ring-opacity-50 border-orange-500;
+}
+
+/* Empty state */
+.clinical-note-tiptap-editor .ProseMirror:empty::before {
+  @apply text-gray-400;
+  content: 'No hay contenido clínico. Comienza a escribir...';
+  pointer-events: none;
+}
+
+/* Bullet points for arrays */
+.clinical-note-tiptap-editor p:has(> *:first-child:is(::before)) {
+  @apply list-none;
+}
+
+/* Smooth transitions */
+.clinical-note-tiptap-editor * {
+  transition: margin 0.2s ease, text-indent 0.2s ease;
+}
+
+/* Print styles */
+@media print {
+  .clinical-note-tiptap-editor {
+    @apply border-none shadow-none;
+  }
+
+  .clinical-note-tiptap-editor .ProseMirror {
+    caret-color: transparent;
+  }
+}

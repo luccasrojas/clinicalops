@@ -1,291 +1,162 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Edit2, Save, X, Download } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { useMedicalHistory } from '../api/get-medical-history'
-import { useUpdateMedicalHistory } from '../api/update-medical-history'
-import type { SingleHistoryResponse } from '../types'
+import { useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useMedicalHistory } from '../api/get-medical-history';
+import type { SingleHistoryResponse } from '../types';
+import { TiptapEditor } from '@/features/medical-records-editor/components/tiptap-editor';
+import { useMedicalRecord } from '@/features/medical-records-editor/api/get-medical-record';
+import { useAutosave } from '@/features/medical-records-editor/hooks/use-autosave';
+import { useEditorState } from '@/features/medical-records-editor/hooks/use-editor';
+import { useMedicalRecordWebSocket } from '@/features/medical-records-editor/hooks/use-websocket';
+import { SaveStatusIndicator } from '@/features/medical-records-editor/components/save-status-indicator';
+import { ExportMenu } from '@/features/medical-records-editor/components/export-menu';
+import { VersionHistoryPanel } from '@/features/medical-records-editor/components/version-history-panel';
+import { ReadOnlyBanner } from '@/features/medical-records-editor/components/read-only-banner';
+import type { JsonValue } from '@/features/medical-records-editor/types/editor';
+import { useAuth } from '@/features/auth/hooks/use-auth';
 
 type MedicalHistoryViewerProps = {
-  historyID: string
-}
+  historyID: string;
+};
 
 export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
-  const { data, isLoading, error } = useMedicalHistory(historyID)
-  const updateHistory = useUpdateMedicalHistory()
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.sub || user?.doctorID || user?.username || null;
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedData, setEditedData] = useState<Record<string, any>>({})
+  const { data: historyData, isLoading, error } = useMedicalHistory(historyID);
+  const {
+    data: recordData,
+    isLoading: recordLoading,
+    error: recordError,
+  } = useMedicalRecord(historyID);
 
-  const history = (data as SingleHistoryResponse | undefined)?.history
+  const history = (historyData as SingleHistoryResponse | undefined)?.history;
+  const structuredNote = recordData?.record?.structuredClinicalNote ?? '{}';
 
-  if (isLoading) {
+  const parsedNote = useMemo<JsonValue>(() => {
+    try {
+      return JSON.parse(structuredNote);
+    } catch {
+      return {};
+    }
+  }, [structuredNote]);
+
+  const { value, resetValue, updateValue } = useEditorState(parsedNote);
+
+  useEffect(() => {
+    resetValue(parsedNote);
+  }, [parsedNote, resetValue]);
+
+  const { saveStatus, saveDraft } = useAutosave({
+    historyID,
+    userId,
+    initialValue: parsedNote,
+  });
+
+  useMedicalRecordWebSocket({
+    historyID,
+    userId,
+    onMessage: () => {
+      queryClient.invalidateQueries({ queryKey: ['medical-record', historyID] });
+    },
+  });
+
+  const handleChange = (nextValue: JsonValue) => {
+    updateValue(nextValue);
+    saveDraft(nextValue);
+  };
+
+  if (isLoading || recordLoading) {
     return (
-      <div className='space-y-4'>
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className='h-32 bg-muted animate-pulse rounded-lg' />
+      <div className="space-y-4">
+        {[...Array(6)].map((_, index) => (
+          <div key={index} className="h-32 bg-muted animate-pulse rounded-lg" />
         ))}
       </div>
-    )
+    );
   }
 
-  if (error || !history) {
+  if (error || recordError || !history || !recordData?.record) {
     return (
-      <div className='text-center py-12'>
-        <p className='text-destructive'>
-          Error al cargar la historia clínica:{' '}
-          {error?.message || 'Error desconocido'}
+      <div className="text-center py-12">
+        <p className="text-destructive">
+          Error al cargar la historia clínica: {error?.message || recordError?.message || 'Error desconocido'}
         </p>
       </div>
-    )
+    );
   }
 
-  const startEditing = () => {
-    setEditedData(JSON.parse(JSON.stringify(history.jsonData)))
-    setIsEditing(true)
-  }
-
-  const cancelEditing = () => {
-    setEditedData({})
-    setIsEditing(false)
-  }
-
-  const saveChanges = async () => {
-    try {
-      await updateHistory.mutateAsync({
-        historyID,
-        jsonData: editedData,
-      })
-      setIsEditing(false)
-      setEditedData({})
-    } catch (error) {
-      console.error('Error updating history:', error)
-    }
-  }
-
-  const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(history.jsonData, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `historia-clinica-${historyID}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const renderValue = (value: any, path: string[] = []): React.ReactNode => {
-    if (value === null || value === undefined) {
-      return (
-        <span className='text-muted-foreground italic'>No especificado</span>
-      )
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        return <span className='text-muted-foreground italic'>Sin datos</span>
-      }
-      return (
-        <ul className='list-disc list-inside space-y-1'>
-          {value.map((item, index) => (
-            <li key={index} className='text-sm'>
-              {typeof item === 'object'
-                ? renderValue(item, [...path, String(index)])
-                : String(item)}
-            </li>
-          ))}
-        </ul>
-      )
-    }
-
-    if (typeof value === 'object') {
-      return (
-        <div className='space-y-3 pl-4 border-l-2 border-muted'>
-          {Object.entries(value).map(([key, val]) => (
-            <div key={key}>
-              <span className='text-sm font-medium capitalize'>
-                {key.replace(/_/g, ' ')}:
-              </span>
-              <div className='mt-1'>{renderValue(val, [...path, key])}</div>
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    return <p className='text-sm'>{String(value)}</p>
-  }
-
-  const renderEditableValue = (
-    key: string,
-    value: any,
-    path: string[],
-  ): React.ReactNode => {
-    const currentPath = [...path, key]
-
-    const updateValue = (newValue: any) => {
-      const newData = { ...editedData }
-      let current: any = newData
-
-      for (let i = 0; i < currentPath.length - 1; i++) {
-        current = current[currentPath[i]]
-      }
-
-      current[currentPath[currentPath.length - 1]] = newValue
-      setEditedData(newData)
-    }
-
-    const getCurrentValue = () => {
-      let current = editedData
-      for (const key of currentPath) {
-        current = current?.[key]
-      }
-      return current
-    }
-
-    if (Array.isArray(value)) {
-      return (
-        <Textarea
-          value={JSON.stringify(getCurrentValue(), null, 2)}
-          onChange={(e) => {
-            try {
-              updateValue(JSON.parse(e.target.value))
-            } catch {
-              // Invalid JSON, don't update
-            }
-          }}
-          rows={4}
-          className='font-mono text-sm'
-        />
-      )
-    }
-
-    if (typeof value === 'object' && value !== null) {
-      return (
-        <div className='space-y-3 pl-4 border-l-2 border-muted'>
-          {Object.entries(value).map(([k, v]) => (
-            <div key={k}>
-              <label className='text-sm font-medium capitalize block mb-1'>
-                {k.replace(/_/g, ' ')}:
-              </label>
-              {renderEditableValue(k, v, currentPath)}
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    const currentValue = String(getCurrentValue() ?? '')
-
-    if (currentValue.length > 100) {
-      return (
-        <Textarea
-          value={currentValue}
-          onChange={(e) => updateValue(e.target.value)}
-          rows={4}
-        />
-      )
-    }
-
-    return (
-      <Input
-        value={currentValue}
-        onChange={(e) => updateValue(e.target.value)}
-      />
-    )
-  }
+  const record = recordData.record;
+  const readOnly = record.readOnly ?? false;
 
   return (
-    <div className='space-y-4 sm:space-y-6'>
-      {/* Header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className='text-2xl sm:text-3xl font-bold'>Historia Clínica</h1>
-          <p className='text-muted-foreground mt-1 text-sm sm:text-base'>
-            {history.metaData?.patientName || 'Paciente'}
+          <h1 className="text-2xl sm:text-3xl font-bold">Historia Clínica</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+            {record.patientName || history.metaData?.patientName || 'Paciente'}
           </p>
         </div>
-        <div className='flex flex-wrap items-center gap-2 sm:gap-2'>
-          {!isEditing ? (
-            <>
-              <Button variant='outline' onClick={handleDownload} className='flex-1 sm:flex-none text-sm sm:text-base'>
-                <Download className='w-4 h-4 mr-2' />
-                <span className='hidden sm:inline'>Descargar</span>
-                <span className='sm:hidden'>Descargar</span>
-              </Button>
-              <Button onClick={startEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
-                <Edit2 className='w-4 h-4 mr-2' />
-                Editar
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant='outline' onClick={cancelEditing} className='flex-1 sm:flex-none text-sm sm:text-base'>
-                <X className='w-4 h-4 mr-2' />
-                Cancelar
-              </Button>
-              <Button onClick={saveChanges} disabled={updateHistory.isPending} className='flex-1 sm:flex-none text-sm sm:text-base'>
-                <Save className='w-4 h-4 mr-2' />
-                {updateHistory.isPending ? 'Guardando...' : 'Guardar'}
-              </Button>
-            </>
-          )}
+        <div className="flex flex-wrap gap-3 items-center">
+          <SaveStatusIndicator status={saveStatus} />
+          <ExportMenu historyID={historyID} fallbackData={value} />
+          <VersionHistoryPanel historyID={historyID} userId={userId} />
+          {readOnly ? (
+            <Button variant="ghost" size="sm" disabled className="text-xs">
+              Solo lectura
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {/* Medical History Content */}
-      <div className='space-y-4'>
-        {Object.entries(history.jsonData).map(([key, value]) => (
-          <Card key={key}>
-            <CardHeader>
-              <CardTitle className='capitalize'>
-                {key.replace(/_/g, ' ')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isEditing
-                ? renderEditableValue(key, value, [])
-                : renderValue(value)}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {readOnly ? <ReadOnlyBanner /> : null}
 
-      {/* Metadata */}
+      <TiptapEditor value={value} onChange={handleChange} readOnly={readOnly} />
+
       <Card>
         <CardHeader>
           <CardTitle>Información del Registro</CardTitle>
         </CardHeader>
-        <CardContent className='space-y-2'>
+        <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
           <div>
-            <span className='text-sm font-medium'>Creado:</span>
-            <p className='text-sm text-muted-foreground'>
-              {new Date(history.createdAt).toLocaleString('es-ES')}
+            <span className="font-medium">Paciente</span>
+            <p className="text-muted-foreground">
+              {record.patientName || 'No disponible'}
             </p>
           </div>
-          {history.updatedAt !== history.createdAt && (
-            <div>
-              <span className='text-sm font-medium'>Última actualización:</span>
-              <p className='text-sm text-muted-foreground'>
-                {new Date(history.updatedAt).toLocaleString('es-ES')}
-              </p>
-            </div>
-          )}
           <div>
-            <span className='text-sm font-medium'>ID:</span>
-            <p className='text-sm text-muted-foreground font-mono'>
-              {history.historyID}
+            <span className="font-medium">Última edición</span>
+            <p className="text-muted-foreground">
+              {record.lastEditedAt
+                ? new Date(record.lastEditedAt).toLocaleString('es-ES')
+                : 'Sin cambios'}
             </p>
+          </div>
+          <div>
+            <span className="font-medium">Creado</span>
+            <p className="text-muted-foreground">
+              {record.createdAt
+                ? new Date(record.createdAt).toLocaleString('es-ES')
+                : 'N/D'}
+            </p>
+          </div>
+          <div>
+            <span className="font-medium">Estado</span>
+            <p className="text-muted-foreground capitalize">
+              {record.status || history.status || 'N/D'}
+            </p>
+          </div>
+          <div>
+            <span className="font-medium">ID del registro</span>
+            <p className="text-muted-foreground font-mono">{historyID}</p>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
