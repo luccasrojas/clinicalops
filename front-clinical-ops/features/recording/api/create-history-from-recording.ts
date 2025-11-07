@@ -1,14 +1,19 @@
-import { webApi } from '@/lib/api-client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateHistoryFromRecordingRequest,
   CreateHistoryFromRecordingResponse,
 } from '../types';
+import { invokeLambdaApi } from '@/lib/lambda-api';
 
 export const createHistoryFromRecording = (
   data: CreateHistoryFromRecordingRequest
 ): Promise<CreateHistoryFromRecordingResponse> => {
-  return webApi.post('/medical-histories', data);
+  return invokeLambdaApi<CreateHistoryFromRecordingResponse>({
+    functionName: 'create_medical_history_from_recording',
+    payload: {
+      body: JSON.stringify(data),
+    },
+  });
 };
 
 export const useCreateHistoryFromRecording = () => {

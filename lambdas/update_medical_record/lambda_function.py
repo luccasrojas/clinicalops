@@ -1,0 +1,260 @@
+import os
+import json
+import boto3
+from datetime import datetime
+from decimal import Decimal
+
+# AWS Clients
+dynamodb = boto3.resource('dynamodb')
+apigateway_management = boto3.client('apigatewaymanagementapi')
+
+# DynamoDB tables
+MEDICAL_HISTORIES_TABLE = os.environ.get('DYNAMODB_MEDICAL_HISTORIES_TABLE', 'medical_histories')
+VERSIONS_TABLE = os.environ.get('DYNAMODB_VERSIONS_TABLE', 'medical_record_versions')
+CONNECTIONS_TABLE = os.environ.get('DYNAMODB_CONNECTIONS_TABLE', 'websocket_connections')
+WS_API_ENDPOINT = os.environ.get('WS_API_ENDPOINT', '')
+
+medical_histories_table = dynamodb.Table(MEDICAL_HISTORIES_TABLE)
+versions_table = dynamodb.Table(VERSIONS_TABLE)
+connections_table = dynamodb.Table(CONNECTIONS_TABLE)
+
+
+def lambda_handler(event, context):
+    """
+    Update medical record with new clinical note content.
+    Also creates a version snapshot and broadcasts to WebSocket connections.
+
+    Expected payload:
+    {
+        "body": {
+            "historyID": "string",
+            "structuredClinicalNote": "string (JSON)",
+            "userId": "string",
+            "changeDescription": "string (optional)"
+        }
+    }
+    """
+    try:
+        # Parse request body
+        if isinstance(event.get('body'), str):
+            body = json.loads(event['body'])
+        else:
+            body = event.get('body', {})
+
+        history_id = body.get('historyID')
+        structured_note = body.get('structuredClinicalNote')
+        user_id = body.get('userId')
+        change_description = body.get('changeDescription', 'Manual edit')
+
+        # Validate required fields
+        if not history_id:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'historyID is required'})
+            }
+
+        if not structured_note:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'structuredClinicalNote is required'})
+            }
+
+        if not user_id:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'userId is required'})
+            }
+
+        # Validate JSON structure
+        try:
+            json.loads(structured_note)
+        except json.JSONDecodeError:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'structuredClinicalNote must be valid JSON string'})
+            }
+
+        # Get current record to check if it exists and user has permissions
+        response = medical_histories_table.get_item(Key={'historyID': history_id})
+
+        if 'Item' not in response:
+            return {
+                'statusCode': 404,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Medical history not found'})
+            }
+
+        current_record = response['Item']
+
+        # TODO: Verify user has permission to edit this record
+        # For now, we trust the userId from the request
+        # In production, validate against Cognito token
+
+        # Check if content actually changed (avoid unnecessary writes)
+        current_note = current_record.get('structuredClinicalNote', '')
+        if current_note == structured_note:
+            print(f"No changes detected for history {history_id}, skipping update")
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({
+                    'message': 'No changes detected',
+                    'historyID': history_id,
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                })
+            }
+
+        # Create version snapshot before updating
+        version_timestamp = int(datetime.now().timestamp() * 1000)
+
+        try:
+            versions_table.put_item(
+                Item={
+                    'historyID': history_id,
+                    'versionTimestamp': version_timestamp,
+                    'structuredClinicalNote': current_note,  # Save the OLD version
+                    'userId': current_record.get('doctorID', 'unknown'),
+                    'changeDescription': f'Snapshot before: {change_description}',
+                    'createdAt': datetime.now().isoformat(),
+                }
+            )
+            print(f"Created version snapshot at timestamp {version_timestamp}")
+        except Exception as e:
+            print(f"Warning: Failed to create version snapshot: {e}")
+            # Continue anyway - version history is nice-to-have
+
+        # Update main record
+        update_timestamp = int(datetime.now().timestamp() * 1000)
+
+        medical_histories_table.update_item(
+            Key={'historyID': history_id},
+            UpdateExpression='SET structuredClinicalNote = :note, lastEditedAt = :timestamp, lastEditedBy = :user',
+            ExpressionAttributeValues={
+                ':note': structured_note,
+                ':timestamp': update_timestamp,
+                ':user': user_id
+            }
+        )
+
+        print(f"Updated medical history {history_id} at {update_timestamp}")
+
+        # Broadcast update via WebSocket (if connections exist)
+        try:
+            broadcast_update(history_id, user_id, structured_note)
+        except Exception as e:
+            print(f"Warning: Failed to broadcast WebSocket update: {e}")
+            # Continue anyway - WebSocket is optional
+
+        # Return success
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'message': 'Medical record updated successfully',
+                'historyID': history_id,
+                'timestamp': update_timestamp,
+                'versionTimestamp': version_timestamp
+            })
+        }
+
+    except Exception as e:
+        print(f"Error updating medical record: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'error': f'Internal server error: {str(e)}'})
+        }
+
+
+def broadcast_update(history_id, sender_user_id, new_content):
+    """
+    Broadcast update to all WebSocket connections for this history.
+    Notifies other users that the medical record has been updated.
+    """
+    from boto3.dynamodb.conditions import Key
+
+    if not WS_API_ENDPOINT:
+        print("Warning: WS_API_ENDPOINT not configured, skipping broadcast")
+        return
+
+    try:
+        # Query all connections for this historyID
+        response = connections_table.scan(
+            FilterExpression=Key('historyID').eq(history_id)
+        )
+
+        connections = response.get('Items', [])
+        print(f"Found {len(connections)} WebSocket connections for history {history_id}")
+
+        if not connections:
+            print("No active connections to broadcast to")
+            return
+
+        # Prepare broadcast message
+        message = json.dumps({
+            'action': 'update',
+            'historyID': history_id,
+            'updatedBy': sender_user_id,
+            'timestamp': int(datetime.now().timestamp() * 1000),
+            'message': 'Medical record has been updated'
+        })
+
+        # Create API Gateway Management API client with endpoint
+        apigateway = boto3.client('apigatewaymanagementapi', endpoint_url=WS_API_ENDPOINT)
+
+        # Send to all connections except sender
+        broadcast_count = 0
+        stale_connections = []
+
+        for connection in connections:
+            connection_id = connection.get('connectionId')
+            conn_user_id = connection.get('userId')
+
+            # Skip sender's own connection
+            if conn_user_id == sender_user_id:
+                print(f"Skipping sender's connection: {connection_id}")
+                continue
+
+            try:
+                apigateway.post_to_connection(
+                    ConnectionId=connection_id,
+                    Data=message.encode('utf-8')
+                )
+                broadcast_count += 1
+                print(f"Broadcasted to connection: {connection_id}")
+
+            except apigateway.exceptions.GoneException:
+                print(f"Connection {connection_id} is stale, marking for cleanup")
+                stale_connections.append(connection_id)
+
+            except Exception as e:
+                print(f"Error sending to connection {connection_id}: {e}")
+
+        # Clean up stale connections
+        for stale_id in stale_connections:
+            try:
+                connections_table.delete_item(Key={'connectionId': stale_id})
+                print(f"Cleaned up stale connection: {stale_id}")
+            except Exception as e:
+                print(f"Error cleaning up connection {stale_id}: {e}")
+
+        print(f"Successfully broadcasted to {broadcast_count} connections")
+
+    except Exception as e:
+        print(f"Error broadcasting update: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't raise - broadcasting is optional

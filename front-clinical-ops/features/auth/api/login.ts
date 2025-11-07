@@ -1,6 +1,6 @@
-import { authApi } from '@/lib/api-client';
 import { useMutation } from '@tanstack/react-query';
 import { LoginResponse } from '../types';
+import { invokeLambdaApi } from '@/lib/lambda-api';
 
 export type LoginData = {
   email: string;
@@ -8,7 +8,12 @@ export type LoginData = {
 };
 
 export const login = (data: LoginData): Promise<LoginResponse> => {
-  return authApi.post('/auth/login', data);
+  return invokeLambdaApi<LoginResponse>({
+    functionName: 'auth_login',
+    payload: {
+      body: JSON.stringify(data),
+    },
+  });
 };
 
 export const useLogin = () => {

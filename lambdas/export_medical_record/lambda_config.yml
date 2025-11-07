@@ -1,0 +1,9 @@
+runtime: python3.11
+memory_size: 1024
+timeout: 60
+handler: lambda_function.lambda_handler
+description: "Export medical record to PDF or DOCX format"
+environment_variables:
+  AWS_REGION: "us-east-1"
+  DYNAMODB_MEDICAL_HISTORIES_TABLE: "medical_histories"
+  S3_EXPORTS_BUCKET: "clinicalops-exports"

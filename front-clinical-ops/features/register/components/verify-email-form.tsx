@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Mail, CheckCircle2 } from 'lucide-react'
+import { invokeLambdaApi } from '@/lib/lambda-api'
 
 interface VerifyEmailFormProps {
   email: string
@@ -31,23 +32,15 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
     setError(null)
 
     try {
-      const response = await fetch('https://x4s8t05ane.execute-api.us-east-1.amazonaws.com/prod/auth/verify-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await invokeLambdaApi({
+        functionName: 'auth_verify_email',
+        payload: {
+          body: JSON.stringify({
+            email,
+            code: code.trim(),
+          }),
         },
-        body: JSON.stringify({
-          email,
-          code: code.trim(),
-        }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al verificar el código')
-      }
-
       setSuccess(true)
       setTimeout(() => {
         onVerified()

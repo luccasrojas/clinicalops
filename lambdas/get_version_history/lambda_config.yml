@@ -1,0 +1,8 @@
+runtime: python3.11
+memory_size: 256
+timeout: 15
+handler: lambda_function.lambda_handler
+description: "Get version history for a medical record"
+environment_variables:
+  AWS_REGION: "us-east-1"
+  DYNAMODB_VERSIONS_TABLE: "medical_record_versions"

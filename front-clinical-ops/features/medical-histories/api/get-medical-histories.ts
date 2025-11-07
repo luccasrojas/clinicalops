@@ -1,14 +1,31 @@
-import { webApi } from '@/lib/api-client';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import type {
   MedicalHistoriesResponse,
   MedicalHistoriesFilters,
 } from '../types';
+import { invokeLambdaApi } from '@/lib/lambda-api';
+
+const sanitizeFilters = (
+  filters: MedicalHistoriesFilters
+): MedicalHistoriesFilters => {
+  return Object.fromEntries(
+    Object.entries(filters).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ''
+    )
+  ) as MedicalHistoriesFilters;
+};
 
 export const getMedicalHistories = (
   filters: MedicalHistoriesFilters
 ): Promise<MedicalHistoriesResponse> => {
-  return webApi.get('/medical-histories', { params: filters });
+  const params = sanitizeFilters(filters);
+
+  return invokeLambdaApi<MedicalHistoriesResponse>({
+    functionName: 'get_medical_histories',
+    payload: {
+      queryStringParameters: params,
+    },
+  });
 };
 
 export const getMedicalHistoriesQueryOptions = (

@@ -7,11 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ClinicalOps is a serverless clinical operations platform for transcribing audio consultations and generating clinical notes. The system uses AssemblyAI for transcription and OpenAI GPT-5 for structured clinical note generation.
 
 **Architecture**: Full AWS serverless stack
+
 - **Backend**: AWS Lambda functions (no traditional API server)
 - **Frontend**: Next.js 16 App Router
 - **Infrastructure**: AWS Cognito (auth), DynamoDB (data), API Gateway (routing), S3 (storage)
 
 **Three main components:**
+
 - `lambdas/` - AWS Lambda microservices (production backend)
 - `front-clinical-ops/` - Next.js frontend application
 - `notebooks/` - Jupyter notebooks for prototyping
@@ -24,6 +26,7 @@ ClinicalOps is a serverless clinical operations platform for transcribing audio 
 **ALL backend logic runs on AWS Lambda functions**. Each lambda is self-contained with its own dependencies and configuration.
 
 **Structure:**
+
 ```
 lambdas/
 └── [lambda-name]/
@@ -36,26 +39,31 @@ lambdas/
 **Core Lambda Functions:**
 
 1. **`transcribe/`** - Audio transcription
+
    - Input: Audio URL
    - Process: AssemblyAI API → Spanish transcription with speaker labels
    - Output: Formatted transcription text
 
 2. **`create_medical_record/`** - Clinical note generation
+
    - Input: Transcription + format example
    - Process: OpenAI GPT-5 → Structured JSON clinical note
    - Output: Complete medical record in JSON format
 
 3. **`extract_format/`** - Format extraction
+
    - Input: Example medical record text
    - Process: GPT-5 → Extract JSON structure
    - Output: JSON schema for medical records
 
 4. **`auth_login/`** - User authentication
+
    - Input: Email + password
    - Process: AWS Cognito authentication
    - Output: JWT tokens + user info
 
 5. **`auth_register_step1/`** - Doctor registration (basic info)
+
    - Input: Doctor details + credentials
    - Process: Create user in Cognito
    - Output: User ID (doctorID)
@@ -66,11 +74,13 @@ lambdas/
    - Output: Confirmation
 
 **Deployment:**
+
 - Push to `lambdas` branch triggers GitHub Actions
 - Automatic deployment to AWS Lambda
 - See `.github/workflows/deploy.yml` for details
 
 **Key integration points:**
+
 - AssemblyAI API configured for Spanish (`es`), speaker labels, 2 expected speakers
 - OpenAI GPT-5 with reasoning effort set to "minimal"
 - AWS Cognito for authentication (User Pool ID: `us-east-1_nuZ12lsNq`)
@@ -80,11 +90,13 @@ lambdas/
 ### Frontend (Next.js)
 
 **Core Stack:**
+
 - Next.js 16 with App Router
 - TypeScript 5 with React 19
 - Tailwind CSS v4
 
 **Architecture & Patterns:**
+
 - **Architecture**: Feature-based organization following Bulletproof React patterns
 - **State management**:
   - TanStack Query v5 (`@tanstack/react-query`) for server state/caching
@@ -97,7 +109,7 @@ lambdas/
   - tailwind-merge + clsx for className management
 - **Animations**: Motion (Framer Motion successor v12) - `motion`, `framer-motion`
 - **Validation**: Zod for schema validation
-- **HTTP Client**: Axios for API requests
+- **HTTP Client**: AWS SDK (`@aws-sdk/client-lambda`) for Lambda invocations
 - **Icons**: Lucide React
 - **Utilities**:
   - `@tanstack/eslint-plugin-query` for React Query linting
@@ -105,6 +117,7 @@ lambdas/
   - Prettier for code formatting
 
 **Project structure:**
+
 ```
 front-clinical-ops/
 ├── app/                 # Next.js routes (pages only)
@@ -124,35 +137,48 @@ front-clinical-ops/
 ```
 
 **Key principles:**
+
 1. **Feature isolation**: No cross-feature imports - each feature is self-contained
 2. **Unidirectional flow**: `shared → features → app` (features can't import from app or other features)
 3. **Colocation**: Keep code close to where it's used
 4. **API pattern**: Each endpoint has: fetcher function + queryOptions + custom hook
 5. **No barrel exports**: Import files directly for better tree-shaking
 
-**API Base URLs:**
+**Lambda Integration:**
 
-The frontend connects to two separate APIs:
+The frontend invokes AWS Lambda functions directly using the AWS SDK through a Next.js API route proxy:
 
-1. **Auth API** (`auth.clinicalops.co`):
-   - User authentication (login, register)
-   - User management
-   - Uses `authApi` client from `@/lib/api-client`
+**Architecture:**
 
-   Available endpoints:
-   - `POST /auth/login` - User login
-   - `POST /auth/register/step1` - Doctor signup (basic info)
-   - `POST /auth/register/step2` - Doctor signup (example history)
+- Frontend calls `invokeLambdaApi()` from `@/lib/lambda-api`
+- Request goes to Next.js API route `/api/lambda`
+- API route uses AWS SDK to invoke Lambda functions directly
+- No API Gateway URLs in frontend code
 
-2. **Main API** (`api.clinicalops.co`):
-   - AI transformations (transcription, medical records)
-   - Medical record operations
-   - Uses `api` client from `@/lib/api-client`
+**Available Lambda Functions:**
 
-   Available endpoints:
-   - `POST /transcribe` - Transcribe audio
-   - `POST /create-medical-record` - Generate clinical note
-   - `POST /extract-format` - Extract medical record structure
+1. **Auth Lambdas:**
+
+   - `auth_login` - User login
+   - `auth_register_step1` - Doctor signup (basic info)
+   - `auth_register_step2` - Doctor signup (example history)
+
+2. **AI Lambdas:**
+   - `transcribe` - Transcribe audio
+   - `create_medical_record` - Generate clinical note
+   - `extract_format` - Extract medical record structure
+
+**API Pattern:**
+
+```typescript
+// Call Lambda directly via SDK proxy
+import { invokeLambdaApi } from "@/lib/lambda-api";
+
+const response = await invokeLambdaApi<ResponseType>({
+  functionName: "lambda_name",
+  payload: { body: JSON.stringify(data) },
+});
+```
 
 ## Development Commands
 
@@ -209,35 +235,71 @@ jupyter notebook
 ## Environment Variables
 
 ### Lambda Environment Variables
+
 Configured in each lambda's `lambda_config.yml`:
 
 **Auth lambdas** (`auth_login`, `auth_register_step1`, `auth_register_step2`):
+
 ```yaml
 environment_variables:
   COGNITO_CLIENT_ID: "4o7ibv9hdvn25f0012hdj149gn"
-  COGNITO_CLIENT_SECRET: "1lv31uvm0bh7pbvs37qqsioisqbjeh67geiv5nsjr9eguu345u9e"
+  COGNITO_CLIENT_SECRET: "<cognito-client-secret>"
   COGNITO_USER_POOL_ID: "us-east-1_nuZ12lsNq"
   AWS_REGION: "us-east-1"
   DYNAMODB_DOCTORS_TABLE: "doctors"
 ```
 
 **Other lambdas**:
+
 - `OPENAI_API_KEY` - OpenAI API key for GPT-5
 - `ASSEMBLY_KEY` - AssemblyAI API key for transcription
 
 ### Frontend Environment Variables
-Create `.env.local` in `front-clinical-ops/`:
-```
-# Auth API (for login, register, user management)
-NEXT_PUBLIC_AUTH_API_BASE_URL=https://auth.clinicalops.co
 
-# Main API (for AI transformations, medical records)
-NEXT_PUBLIC_API_BASE_URL=https://api.clinicalops.co
+Create `.env.local` in `front-clinical-ops/`:
+
 ```
+# AWS Configuration for Lambda SDK
+AWS_REGION=us-east-1
+
+# Optional: For local development only (not needed in Amplify)
+# AWS_ACCESS_KEY_ID=<your-access-key-id>
+# AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
+
+# Optional: Public AWS region (fallback)
+NEXT_PUBLIC_AWS_REGION=us-east-1
+```
+
+**AWS Authentication:**
+
+1. **Local Development:**
+
+   - Use AWS credentials from `~/.aws/credentials` (profile: `admin-clinicalops`)
+   - Or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env.local`
+
+2. **Amplify Production:**
+   - Uses IAM role automatically: `AmplifySSRLoggingRole-29f56bb8-a840-4894-96c7-eba85b5fa4aa`
+   - Role has `PowerUserAccess` policy (full access to Lambda, DynamoDB, S3, Cognito, etc.)
+   - No need to configure access keys in Amplify environment variables
+
+**IAM User (for manual operations):**
+
+- User: `amplify-clinicalops`
+- Access Key ID: `<stored-securely>`
+- Secret Access Key: `<stored-securely>`
+- Policy: `PowerUserAccess`
+- Use case: Manual Lambda invocations, CLI operations, testing
+
+**Important**:
+
+- AWS credentials are used server-side only (in Next.js API routes)
+- Never expose AWS credentials in client-side code
+- Lambda client automatically uses IAM role when running in Amplify
 
 ## AWS Resources
 
 ### Cognito
+
 - **User Pool ID**: `us-east-1_nuZ12lsNq`
 - **Client ID**: `4o7ibv9hdvn25f0012hdj149gn`
 - **Region**: us-east-1
@@ -245,6 +307,7 @@ NEXT_PUBLIC_API_BASE_URL=https://api.clinicalops.co
 - **Custom attributes**: `custom:custom:specialty`, `custom:custom:medicalreg`
 
 ### DynamoDB
+
 - **Table**: `doctors`
 - **Partition Key**: `doctorID` (String - Cognito user sub)
 - **Schema**:
@@ -263,11 +326,62 @@ NEXT_PUBLIC_API_BASE_URL=https://api.clinicalops.co
   }
   ```
 
+### IAM Resources
+
+**IAM Role (Amplify):**
+
+- **Role Name**: `AmplifySSRLoggingRole-29f56bb8-a840-4894-96c7-eba85b5fa4aa`
+- **ARN**: `arn:aws:iam::880140151067:role/service-role/AmplifySSRLoggingRole-29f56bb8-a840-4894-96c7-eba85b5fa4aa`
+- **Policies**: `PowerUserAccess`, `AmplifySSRLoggingPolicy`
+- **Purpose**: Used by Amplify app to invoke Lambdas and access AWS services
+
+**IAM User (Manual Operations):**
+
+- **User Name**: `amplify-clinicalops`
+- **ARN**: `arn:aws:iam::880140151067:user/amplify-clinicalops`
+- **Access Key**: `<stored-securely>`
+- **Policies**: `PowerUserAccess`
+- **Purpose**: Manual Lambda invocations, CLI operations, testing
+
 ### API Gateway
+
 - **API Name**: `auth-clinicalops`
 - **API ID**: `x4s8t05ane`
 - **Stage**: `prod`
 - **Base URL**: `https://x4s8t05ane.execute-api.us-east-1.amazonaws.com/prod`
+- **Note**: API Gateway exists but frontend now invokes Lambdas directly via AWS SDK
+
+### Amplify
+
+- **App Name**: `clinicalops`
+- **App ID**: `dgfgsgktnjbki`
+- **Repository**: `https://github.com/luccasrojas/clinicalops`
+- **Branch**: `main`
+- **Domain**: `dgfgsgktnjbki.amplifyapp.com`
+- **Custom Domain**: `www.clinicalops.co`
+- **IAM Role**: `AmplifySSRLoggingRole-29f56bb8-a840-4894-96c7-eba85b5fa4aa`
+
+### Lambda Invocation Architecture
+
+**Frontend → Lambda Communication:**
+
+1. Frontend calls `invokeLambdaApi()` helper function
+2. Helper sends request to Next.js API route `/api/lambda`
+3. API route uses `@aws-sdk/client-lambda` to invoke function
+4. Lambda response is proxied back to frontend
+
+**Key Files:**
+
+- `lib/lambda-api.ts` - Client-side helper for Lambda invocation
+- `lib/aws/lambda-client.ts` - AWS SDK Lambda client configuration
+- `app/api/lambda/route.ts` - Next.js API route handler (proxy)
+
+**Benefits:**
+
+- Direct Lambda invocation (no API Gateway latency)
+- Simpler frontend code (no API Gateway URLs)
+- Type-safe Lambda calls
+- Better error handling
 
 ## Code Patterns
 
@@ -280,11 +394,11 @@ When adding a new feature to the frontend, follow this structure:
 **2. API layer** (`features/[feature-name]/api/`):
 
 ```typescript
-// Example 1: Auth API (for authentication endpoints)
+// Example 1: Lambda invocation with mutation (auth)
 // features/auth/api/login.ts
-import { authApi } from '@/lib/api-client';
-import { useMutation } from '@tanstack/react-query';
-import { LoginResponse } from '@/types/auth';
+import { invokeLambdaApi } from "@/lib/lambda-api";
+import { useMutation } from "@tanstack/react-query";
+import { LoginResponse } from "../types";
 
 type LoginData = {
   email: string;
@@ -292,21 +406,32 @@ type LoginData = {
 };
 
 export const login = (data: LoginData): Promise<LoginResponse> => {
-  return authApi.post('/auth/login', data);
+  return invokeLambdaApi<LoginResponse>({
+    functionName: "auth_login",
+    payload: { body: JSON.stringify(data) },
+  });
 };
 
 export const useLogin = () => {
   return useMutation({
     mutationFn: login,
+    onSuccess: (data) => {
+      // Store tokens in localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", data.accessToken);
+        localStorage.setItem("idToken", data.idToken);
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+    },
   });
 };
 ```
 
 ```typescript
-// Example 2: Main API (for AI transformations)
+// Example 2: Lambda invocation with query
 // features/medical-records/api/get-records.ts
-import { api } from '@/lib/api-client';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { invokeLambdaApi } from "@/lib/lambda-api";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 export type MedicalRecord = {
   id: string;
@@ -315,12 +440,15 @@ export type MedicalRecord = {
 };
 
 export const getRecords = (): Promise<{ records: MedicalRecord[] }> => {
-  return api.get('/medical-records');
+  return invokeLambdaApi<{ records: MedicalRecord[] }>({
+    functionName: "get_medical_records",
+    payload: {},
+  });
 };
 
 export const getRecordsQueryOptions = () => {
   return queryOptions({
-    queryKey: ['medical-records'],
+    queryKey: ["medical-records"],
     queryFn: () => getRecords(),
   });
 };
@@ -334,20 +462,25 @@ export const useMedicalRecords = ({ queryConfig } = {}) => {
 ```
 
 **3. Components** (`features/[feature-name]/components/`):
+
 - Feature-specific UI components
 - Use shadcn/ui components from `@/components/ui`
 - Keep components small and focused
 
 **4. Types** (`features/[feature-name]/types/`):
+
 - TypeScript definitions for this feature only
 
 **5. Hooks** (`features/[feature-name]/hooks/`) (optional):
+
 - Feature-specific custom hooks
 
 **6. Stores** (`features/[feature-name]/stores/`) (optional):
+
 - Feature-specific Zustand stores
 
 **7. Compose at app level**:
+
 - Import features in `app/` routes
 - NEVER import across features
 
@@ -356,6 +489,7 @@ export const useMedicalRecords = ({ queryConfig } = {}) => {
 1. **Create directory** in `lambdas/[lambda-name]/`
 
 2. **Create `lambda_function.py`**:
+
 ```python
 import os
 import json
@@ -405,12 +539,14 @@ def lambda_handler(event, context):
 ```
 
 3. **Create `requirements.txt`**:
+
 ```
 boto3>=1.28.0
 # Add other dependencies
 ```
 
 4. **Create `lambda_config.yml`**:
+
 ```yaml
 runtime: python3.11
 memory_size: 256
@@ -444,10 +580,12 @@ environment_variables:
 ## Testing Guidelines
 
 ### Backend (Lambda Functions)
+
 - Test lambda handlers with mock events
 - Mock external services (AssemblyAI, OpenAI, AWS services)
 - Test error handling and edge cases
 - Example:
+
 ```python
 def test_lambda_handler():
     event = {'body': json.dumps({'key': 'value'})}
@@ -459,6 +597,7 @@ def test_lambda_handler():
 ### Frontend (React/TypeScript)
 
 **Testing philosophy from Bulletproof React**:
+
 - **Integration tests > Unit tests**: Test features as users interact with them
 - **Test behavior, not implementation**: Focus on what renders and user interactions
 - **Colocate tests**: Place tests next to code
@@ -467,28 +606,30 @@ def test_lambda_handler():
 - **Mock APIs with MSW**: Use service workers instead of mocking fetch
 
 **Testing tools:**
+
 - **Vitest**: Unit and integration tests
 - **Testing Library**: Test components as users interact
 - **Playwright**: End-to-end tests
 - **MSW**: Mock API responses
 
 **Example:**
+
 ```typescript
 // features/auth/__tests__/login.test.tsx
-import { render, screen, waitFor } from '@testing-library/react';
-import { LoginForm } from '../components/login-form';
+import { render, screen, waitFor } from "@testing-library/react";
+import { LoginForm } from "../components/login-form";
 
-it('displays error on invalid credentials', async () => {
+it("displays error on invalid credentials", async () => {
   render(<LoginForm />);
 
   // User interactions
-  fireEvent.change(screen.getByLabelText('Email'), {
-    target: { value: 'test@example.com' }
+  fireEvent.change(screen.getByLabelText("Email"), {
+    target: { value: "test@example.com" },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole("button", { name: "Login" }));
 
   await waitFor(() => {
-    expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+    expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
   });
 });
 ```
@@ -508,6 +649,7 @@ it('displays error on invalid credentials', async () => {
 ## Lambda-Specific Patterns
 
 ### Spanish Temporal Context
+
 ```python
 def generate_temporal_context():
     # Hardcoded Spanish arrays - no locale.setlocale() needed
@@ -517,6 +659,7 @@ def generate_temporal_context():
 ```
 
 ### OpenAI GPT-5 Integration
+
 ```python
 # CORRECT GPT-5 pattern
 completion = client.responses.create(
@@ -529,12 +672,14 @@ data = json.loads(completion.output[1].content[0].text)
 ```
 
 **Key differences from GPT-4:**
+
 - Use `responses.create()` NOT `chat.completions.create()`
 - Parameter is `input` NOT `messages`
 - Access via `completion.output[1].content[0].text` NOT `completion.choices[0].message.content`
 - Add `reasoning={"effort": "minimal"}` for cost efficiency
 
 ### AssemblyAI Configuration
+
 ```python
 config = aai.TranscriptionConfig(
     speech_model=aai.SpeechModel.universal,
@@ -545,6 +690,7 @@ config = aai.TranscriptionConfig(
 ```
 
 ### AWS Cognito Authentication Pattern
+
 ```python
 import hmac
 import hashlib
@@ -575,6 +721,7 @@ response = cognito_client.initiate_auth(
 ## Deployment
 
 ### Lambdas (Automatic via GitHub Actions)
+
 1. Make changes to lambda code
 2. Commit and push to `lambdas` branch
 3. GitHub Actions automatically:
@@ -597,6 +744,7 @@ aws cloudfront create-invalidation --profile admin-clinicalops --distribution-id
 ```
 
 ### Frontend (Manual)
+
 ```bash
 cd front-clinical-ops
 npm run build
@@ -612,7 +760,10 @@ The following dependencies should be installed in `front-clinical-ops/`:
 npm install next@16 react@19.2 react-dom@19.2
 
 # State Management & Data Fetching
-npm install @tanstack/react-query@^5 zustand@^5 axios@^1
+npm install @tanstack/react-query@^5 zustand@^5
+
+# AWS SDK
+npm install @aws-sdk/client-lambda@^3
 
 # UI Components & Styling
 npm install @radix-ui/react-slot@^1 @radix-ui/react-label@^2 @radix-ui/react-separator@^1
@@ -649,3 +800,4 @@ aws dynamodb scan --table-name doctors --profile admin-clinicalops --region us-e
 # Cognito
 aws cognito-idp list-users --user-pool-id us-east-1_nuZ12lsNq --profile admin-clinicalops --region us-east-1
 ```
+
