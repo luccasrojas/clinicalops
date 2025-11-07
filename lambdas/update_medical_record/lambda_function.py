@@ -3,13 +3,13 @@ import json
 import boto3
 from datetime import datetime
 from decimal import Decimal
+from boto3.dynamodb.conditions import Attr
 
 # AWS Clients
 dynamodb = boto3.resource('dynamodb')
-apigateway_management = boto3.client('apigatewaymanagementapi')
 
 # DynamoDB tables
-MEDICAL_HISTORIES_TABLE = os.environ.get('DYNAMODB_MEDICAL_HISTORIES_TABLE', 'medical_histories')
+MEDICAL_HISTORIES_TABLE = os.environ.get('DYNAMODB_MEDICAL_HISTORIES_TABLE', 'medical-histories')
 VERSIONS_TABLE = os.environ.get('DYNAMODB_VERSIONS_TABLE', 'medical_record_versions')
 CONNECTIONS_TABLE = os.environ.get('DYNAMODB_CONNECTIONS_TABLE', 'websocket_connections')
 WS_API_ENDPOINT = os.environ.get('WS_API_ENDPOINT', '')
@@ -95,7 +95,14 @@ def lambda_handler(event, context):
         # In production, validate against Cognito token
 
         # Check if content actually changed (avoid unnecessary writes)
-        current_note = current_record.get('structuredClinicalNote', '')
+        current_note = current_record.get('structuredClinicalNote')
+        if not current_note:
+            fallback_payload = current_record.get('jsonData', {})
+            try:
+                current_note = json.dumps(fallback_payload, default=_decimal_default, ensure_ascii=False)
+            except Exception:
+                current_note = '{}'
+
         if current_note == structured_note:
             print(f"No changes detected for history {history_id}, skipping update")
             return {
@@ -117,7 +124,7 @@ def lambda_handler(event, context):
                     'historyID': history_id,
                     'versionTimestamp': version_timestamp,
                     'structuredClinicalNote': current_note,  # Save the OLD version
-                    'userId': current_record.get('doctorID', 'unknown'),
+                    'userId': user_id,
                     'changeDescription': f'Snapshot before: {change_description}',
                     'createdAt': datetime.now().isoformat(),
                 }
@@ -130,14 +137,21 @@ def lambda_handler(event, context):
         # Update main record
         update_timestamp = int(datetime.now().timestamp() * 1000)
 
+        update_expression = 'SET structuredClinicalNote = :note, lastEditedAt = :timestamp, lastEditedBy = :user'
+        expression_values = {
+            ':note': structured_note,
+            ':timestamp': update_timestamp,
+            ':user': user_id
+        }
+
+        if not current_record.get('structuredClinicalNoteOriginal'):
+            update_expression += ', structuredClinicalNoteOriginal = if_not_exists(structuredClinicalNoteOriginal, :original)'
+            expression_values[':original'] = current_note or structured_note
+
         medical_histories_table.update_item(
             Key={'historyID': history_id},
-            UpdateExpression='SET structuredClinicalNote = :note, lastEditedAt = :timestamp, lastEditedBy = :user',
-            ExpressionAttributeValues={
-                ':note': structured_note,
-                ':timestamp': update_timestamp,
-                ':user': user_id
-            }
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=expression_values
         )
 
         print(f"Updated medical history {history_id} at {update_timestamp}")
@@ -184,19 +198,26 @@ def broadcast_update(history_id, sender_user_id, new_content):
     Broadcast update to all WebSocket connections for this history.
     Notifies other users that the medical record has been updated.
     """
-    from boto3.dynamodb.conditions import Key
-
     if not WS_API_ENDPOINT:
         print("Warning: WS_API_ENDPOINT not configured, skipping broadcast")
         return
 
     try:
         # Query all connections for this historyID
-        response = connections_table.scan(
-            FilterExpression=Key('historyID').eq(history_id)
-        )
+        connections = []
+        scan_kwargs = {
+            'FilterExpression': Attr('historyID').eq(history_id)
+        }
 
-        connections = response.get('Items', [])
+        while True:
+            response = connections_table.scan(**scan_kwargs)
+            connections.extend(response.get('Items', []))
+
+            if 'LastEvaluatedKey' not in response:
+                break
+
+            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+
         print(f"Found {len(connections)} WebSocket connections for history {history_id}")
 
         if not connections:
@@ -258,3 +279,9 @@ def broadcast_update(history_id, sender_user_id, new_content):
         import traceback
         traceback.print_exc()
         # Don't raise - broadcasting is optional
+
+
+def _decimal_default(value):
+    if isinstance(value, Decimal):
+        return float(value) if value % 1 else int(value)
+    raise TypeError(f'Object of type {type(value)} is not JSON serializable')
