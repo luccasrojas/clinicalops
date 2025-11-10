@@ -94,16 +94,19 @@ export function TiptapEditor({
 
       // Only update if content actually changed (avoid infinite loops)
       if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-        editor.commands.setContent(newContent, false); // false = don't emit update event
+        editor.commands.setContent(newContent, { emitUpdate: false });
       }
     } catch (error) {
       console.error('[TiptapEditor] Error setting content:', error);
       console.error('[TiptapEditor] Invalid value:', value);
       // Set empty content on error
-      editor.commands.setContent({
-        type: 'doc',
-        content: [{ type: 'paragraph', content: [] }],
-      }, false);
+      editor.commands.setContent(
+        {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [] }],
+        },
+        { emitUpdate: false },
+      );
     }
   }, [editor, value]);
 

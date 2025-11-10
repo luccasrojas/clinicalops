@@ -7,6 +7,7 @@
 import { Document } from '@tiptap/extension-document';
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { Heading } from '@tiptap/extension-heading';
+import type { EditorView } from '@tiptap/pm/view';
 
 /**
  * CustomDocument Extension
@@ -145,7 +146,7 @@ export const CustomHeading = Heading.extend({
         key: new (require('@tiptap/pm/state').PluginKey)('headingProtection'),
         props: {
           // Block text input only in h1 headings
-          handleTextInput: (view, from, to, text) => {
+          handleTextInput: (view: EditorView, from: number, to: number, text: string) => {
             const { state } = view;
             const $pos = state.doc.resolve(from);
 
@@ -160,7 +161,7 @@ export const CustomHeading = Heading.extend({
             return false;
           },
           // Prevent clicking into h1 headings only
-          handleClick: (view, pos, event) => {
+          handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
             const { state } = view;
             const $pos = state.doc.resolve(pos);
 
