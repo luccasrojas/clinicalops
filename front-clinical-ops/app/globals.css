@@ -349,7 +349,7 @@ body {
 }
 
 /* ==========================================================================
-   Sub-Headings (h2, h3) - Original from JSON (Non-editable)
+   Sub-Headings (h2, h3) - All Editable
    ========================================================================== */
 
 .clinical-note-tiptap-editor h2,
@@ -357,7 +357,7 @@ body {
   margin: 1rem 0 0.5rem 0;
   font-weight: 600;
   color: rgb(55 65 81);
-  cursor: not-allowed;
+  cursor: text;
   text-transform: capitalize;
 }
 
@@ -372,26 +372,6 @@ body {
 }
 
 /* ==========================================================================
-   New Headings (User-created, Editable)
-   ========================================================================== */
-
-.clinical-note-tiptap-editor h2[data-is-new="true"],
-.clinical-note-tiptap-editor h3[data-is-new="true"] {
-  cursor: text;
-  color: rgb(37 99 235);
-  font-style: italic;
-}
-
-.clinical-note-tiptap-editor h2[data-is-new="true"] {
-  font-size: 1.125rem;
-}
-
-.clinical-note-tiptap-editor h3[data-is-new="true"] {
-  font-size: 1rem;
-  color: rgb(59 130 246);
-}
-
-/* ==========================================================================
    Dark Mode Variants
    ========================================================================== */
 
@@ -402,11 +382,6 @@ body {
 .dark .clinical-note-tiptap-editor h2,
 .dark .clinical-note-tiptap-editor h3 {
   color: rgb(209 213 219);
-}
-
-.dark .clinical-note-tiptap-editor h2[data-is-new="true"],
-.dark .clinical-note-tiptap-editor h3[data-is-new="true"] {
-  color: rgb(96 165 250);
 }
 
 /* Paragraph levels */

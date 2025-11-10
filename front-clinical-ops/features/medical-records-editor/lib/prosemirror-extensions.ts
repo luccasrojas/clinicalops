@@ -95,10 +95,10 @@ export const CustomHeading = Heading.extend({
           }
         }
 
-        // Prevent joining paragraph with heading above
+        // Prevent joining paragraph with h1 heading above
         if ($from.parent.type.name === 'paragraph' && $from.parentOffset === 0 && empty) {
           const $before = state.doc.resolve($from.pos - 1);
-          if ($before.parent.type.name === 'heading') {
+          if ($before.parent.type.name === 'heading' && $before.parent.attrs.level === 1) {
             return true;
           }
         }
