@@ -45,9 +45,13 @@ export const CustomParagraph = Paragraph.extend({
 
 /**
  * CustomHeading Extension
- * Stores the original JSON key in a data attribute for reverse transformation
- * Level 1 headings (top-level keys) are non-editable
- * Level 2+ headings (nested keys) are editable
+ *
+ * Uses native heading levels for semantic HTML and simple CSS targeting:
+ * - Level 1 (h1) = Top-level sections (non-editable, purple styling)
+ * - Level 2 (h2) = Sub-sections (editable, gray styling)
+ * - Level 3 (h3) = Sub-sub-sections (editable, lighter styling)
+ *
+ * Stores jsonKey for reverse transformation to JSON structure
  */
 export const CustomHeading = Heading.extend({
   addAttributes() {
@@ -57,85 +61,76 @@ export const CustomHeading = Heading.extend({
         default: null,
         parseHTML: (element) => element.getAttribute('data-json-key'),
         renderHTML: (attributes) => {
-          // Always render the data attribute when jsonKey exists
           return attributes.jsonKey
             ? { 'data-json-key': attributes.jsonKey }
             : {};
         },
       },
-      isTopLevel: {
+      isNew: {
         default: false,
-        parseHTML: (element) => element.getAttribute('data-top-level') === 'true',
+        parseHTML: (element) => element.getAttribute('data-is-new') === 'true',
         renderHTML: (attributes) => {
-          // Always render the attribute (true or false)
-          return {
-            'data-top-level': attributes.isTopLevel ? 'true' : 'false',
-          };
+          return attributes.isNew
+            ? { 'data-is-new': 'true' }
+            : {};
         },
       },
     };
   },
 
-  // Override renderHTML to apply classes based on attributes
-  renderHTML({ node, HTMLAttributes }) {
-    const level = this.options.levels.includes(node.attrs.level)
-      ? node.attrs.level
-      : this.options.levels[0];
-
-    const classes = [];
-
-    // Add top-level class if it's a top-level heading
-    if (node.attrs.isTopLevel) {
-      classes.push('heading-top-level');
-    }
-
-    // Combine existing classes from HTMLAttributes with new classes
-    if (HTMLAttributes.class) {
-      classes.push(HTMLAttributes.class);
-    }
-
-    return [
-      `h${level}`,
-      {
-        ...HTMLAttributes,
-        class: classes.length > 0 ? classes.join(' ') : undefined,
-      },
-      0,
-    ];
-  },
-
   addKeyboardShortcuts() {
     return {
-      // Prevent editing top-level headings
+      // Prevent editing h1 headings only
       Backspace: ({ editor }) => {
         const { state } = editor;
-        const { selection } = state;
-        const { $from } = selection;
+        const { $from, $to, empty } = state.selection;
 
-        // Check if we're in a heading
+        // Block backspace only in h1 headings
         if ($from.parent.type.name === 'heading') {
-          const node = $from.parent;
-          const isTopLevel = node.attrs.isTopLevel;
+          const level = $from.parent.attrs.level;
 
-          // If it's a top-level heading, prevent deletion
-          if (isTopLevel) {
-            return true; // Block the action
+          // Only H1 is non-editable, h2/h3 are always editable
+          if (level === 1) {
+            return true; // Block
           }
         }
-        return false; // Allow default behavior
+
+        // Prevent joining paragraph with heading above
+        if ($from.parent.type.name === 'paragraph' && $from.parentOffset === 0 && empty) {
+          const $before = state.doc.resolve($from.pos - 1);
+          if ($before.parent.type.name === 'heading') {
+            return true;
+          }
+        }
+
+        return false;
       },
       Delete: ({ editor }) => {
         const { state } = editor;
-        const { selection } = state;
-        const { $from } = selection;
+        const { $from } = state.selection;
 
         if ($from.parent.type.name === 'heading') {
-          const node = $from.parent;
-          const isTopLevel = node.attrs.isTopLevel;
+          const level = $from.parent.attrs.level;
 
-          if (isTopLevel) {
-            return true; // Block the action
+          // Only block delete in h1 headings
+          if (level === 1) {
+            return true;
           }
+        }
+        return false;
+      },
+      // Always create paragraphs when pressing Enter in headings
+      Enter: ({ editor }) => {
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        if ($from.parent.type.name === 'heading') {
+          const { tr } = state;
+          const pos = $from.after();
+          tr.insert(pos, state.schema.nodes.paragraph.create());
+          tr.setSelection(require('@tiptap/pm/state').TextSelection.create(tr.doc, pos + 1));
+          editor.view.dispatch(tr);
+          return true;
         }
         return false;
       },
@@ -147,29 +142,36 @@ export const CustomHeading = Heading.extend({
 
     return [
       new Plugin({
-        key: new (require('@tiptap/pm/state').PluginKey)('topLevelHeadingProtection'),
+        key: new (require('@tiptap/pm/state').PluginKey)('headingProtection'),
         props: {
-          // Prevent input in top-level headings
+          // Block text input only in h1 headings
           handleTextInput: (view, from, to, text) => {
             const { state } = view;
-            const { doc } = state;
-            const $pos = doc.resolve(from);
+            const $pos = state.doc.resolve(from);
 
-            if ($pos.parent.type.name === 'heading' && $pos.parent.attrs.isTopLevel) {
-              return true; // Block text input
+            if ($pos.parent.type.name === 'heading') {
+              const level = $pos.parent.attrs.level;
+
+              // Only H1 is protected, h2/h3 are always editable
+              if (level === 1) {
+                return true; // Block input
+              }
             }
-            return false; // Allow normal input
+            return false;
           },
-          // Prevent clicking/selecting top-level headings
+          // Prevent clicking into h1 headings only
           handleClick: (view, pos, event) => {
             const { state } = view;
-            const { doc } = state;
-            const $pos = doc.resolve(pos);
+            const $pos = state.doc.resolve(pos);
 
-            if ($pos.parent.type.name === 'heading' && $pos.parent.attrs.isTopLevel) {
-              // Prevent selection
-              event.preventDefault();
-              return true;
+            if ($pos.parent.type.name === 'heading') {
+              const level = $pos.parent.attrs.level;
+
+              // Only block clicking in h1 headings
+              if (level === 1) {
+                event.preventDefault();
+                return true;
+              }
             }
             return false;
           },

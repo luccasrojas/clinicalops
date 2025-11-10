@@ -333,135 +333,80 @@ body {
   transition: margin 0.2s ease, text-indent 0.2s ease;
 }
 
-/* Top-level headings (non-editable) */
-.clinical-note-tiptap-editor .heading-top-level {
-  background: linear-gradient(135deg, rgb(79 70 229 / 0.08) 0%, rgb(124 58 237 / 0.08) 100%);
-  border: 2px solid rgb(99 102 241 / 0.3);
-  border-left: 5px solid rgb(99 102 241);
-  padding: 1rem 1.25rem;
-  margin: 2rem 0 1rem 0;
+/* ==========================================================================
+   Top-Level Headings (h1) - Non-Editable, Purple Styling
+   ========================================================================== */
+
+.clinical-note-tiptap-editor h1 {
+  margin: 1.5rem 0 0.75rem 0;
   font-weight: 700;
-  font-size: 1.625rem;
-  color: rgb(79 70 229);
-  border-radius: 0.5rem;
+  font-size: 1.5rem;
+  color: rgb(99 102 241);
   cursor: not-allowed;
   user-select: none;
-  position: relative;
   letter-spacing: 0.025em;
   text-transform: uppercase;
-  font-family: system-ui, -apple-system, sans-serif;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
-  transition: all 0.2s ease;
 }
 
-.clinical-note-tiptap-editor .heading-top-level::before {
-  content: '🔒';
-  position: absolute;
-  left: -2.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.4;
-  font-size: 1.25rem;
-}
+/* ==========================================================================
+   Sub-Headings (h2, h3) - Original from JSON (Non-editable)
+   ========================================================================== */
 
-.clinical-note-tiptap-editor .heading-top-level::after {
-  content: 'NO EDITABLE';
-  position: absolute;
-  right: 1.25rem;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.4;
-  font-size: 0.75rem;
+.clinical-note-tiptap-editor h2,
+.clinical-note-tiptap-editor h3 {
+  margin: 1rem 0 0.5rem 0;
   font-weight: 600;
-  letter-spacing: 0.05em;
-  color: rgb(99 102 241);
-}
-
-.clinical-note-tiptap-editor .heading-top-level:hover {
-  background: linear-gradient(135deg, rgb(79 70 229 / 0.12) 0%, rgb(124 58 237 / 0.12) 100%);
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.08);
-}
-
-.dark .clinical-note-tiptap-editor .heading-top-level {
-  background: linear-gradient(135deg, rgb(99 102 241 / 0.12) 0%, rgb(139 92 246 / 0.12) 100%);
-  color: rgb(167 139 250);
-  border-left-color: rgb(167 139 250);
-  border-color: rgb(167 139 250 / 0.3);
-}
-
-.dark .clinical-note-tiptap-editor .heading-top-level::after {
-  color: rgb(167 139 250);
-}
-
-/* Sub-headings (editable) */
-.clinical-note-tiptap-editor h1[data-json-key]:not(.heading-top-level),
-.clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level),
-.clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level) {
-  background: rgb(249 250 251);
-  border: 1px solid rgb(229 231 235);
-  border-left: 3px solid rgb(59 130 246);
-  padding: 0.625rem 1rem;
-  margin: 1.25rem 0 0.625rem 0;
-  font-weight: 600;
-  color: rgb(31 41 55);
-  border-radius: 0.375rem;
-  cursor: text;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level)::before {
-  content: '✏️';
-  position: absolute;
-  left: -2rem;
-  opacity: 0.5;
-  font-size: 0.875rem;
-}
-
-.clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level) {
-  font-size: 1.25rem;
+  color: rgb(55 65 81);
+  cursor: not-allowed;
   text-transform: capitalize;
 }
 
-.clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level) {
-  font-size: 1.1rem;
-  margin-left: 1.5rem;
-  border-left-color: rgb(156 163 175);
+.clinical-note-tiptap-editor h2 {
+  font-size: 1.125rem;
 }
 
-.clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level):hover,
-.clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level):hover {
-  background: rgb(243 244 246);
-  border-left-color: rgb(37 99 235);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+.clinical-note-tiptap-editor h3 {
+  font-size: 1rem;
+  margin-left: 1rem;
+  color: rgb(75 85 99);
 }
 
-.clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level):focus,
-.clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level):focus {
-  background: white;
-  border-color: rgb(59 130 246);
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+/* ==========================================================================
+   New Headings (User-created, Editable)
+   ========================================================================== */
+
+.clinical-note-tiptap-editor h2[data-is-new="true"],
+.clinical-note-tiptap-editor h3[data-is-new="true"] {
+  cursor: text;
+  color: rgb(37 99 235);
+  font-style: italic;
 }
 
-.dark .clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level),
-.dark .clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level) {
-  background: rgb(31 41 55);
-  color: rgb(229 231 235);
-  border-color: rgb(55 65 81);
-  border-left-color: rgb(59 130 246);
+.clinical-note-tiptap-editor h2[data-is-new="true"] {
+  font-size: 1.125rem;
 }
 
-.dark .clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level):hover,
-.dark .clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level):hover {
-  background: rgb(55 65 81);
-  border-left-color: rgb(96 165 250);
+.clinical-note-tiptap-editor h3[data-is-new="true"] {
+  font-size: 1rem;
+  color: rgb(59 130 246);
 }
 
-.dark .clinical-note-tiptap-editor h2[data-json-key]:not(.heading-top-level):focus,
-.dark .clinical-note-tiptap-editor h3[data-json-key]:not(.heading-top-level):focus {
-  background: rgb(55 65 81);
-  border-color: rgb(59 130 246);
+/* ==========================================================================
+   Dark Mode Variants
+   ========================================================================== */
+
+.dark .clinical-note-tiptap-editor h1 {
+  color: rgb(167 139 250);
+}
+
+.dark .clinical-note-tiptap-editor h2,
+.dark .clinical-note-tiptap-editor h3 {
+  color: rgb(209 213 219);
+}
+
+.dark .clinical-note-tiptap-editor h2[data-is-new="true"],
+.dark .clinical-note-tiptap-editor h3[data-is-new="true"] {
+  color: rgb(96 165 250);
 }
 
 /* Paragraph levels */

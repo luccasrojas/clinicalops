@@ -40,9 +40,9 @@ export function tiptapToStructuredJson(tiptapDoc: JSONContent): JsonValue {
       const headingLevel = node.attrs?.level ?? 1;
       const editedText = extractText(node);
 
-      // TÍTULOS EDITABLES: Use jsonKey if available, otherwise convert edited text
-      const originalKey = node.attrs?.jsonKey;
-      const jsonKey = originalKey || unformatKey(editedText);
+      // TÍTULOS EDITABLES: Always use edited text to generate key
+      // This ensures changes to heading text are reflected in JSON structure
+      const jsonKey = unformatKey(editedText);
 
       // Adjust stack to correct level
       while (

@@ -20,7 +20,7 @@ import {
 } from '../lib/prosemirror-extensions';
 import { jsonToTiptapDoc } from '../lib/json-to-tiptap';
 import { tiptapToStructuredJson } from '../lib/tiptap-to-json';
-import styles from '../styles/editor.module.css';
+import { FloatingBlockToolbar } from './floating-block-toolbar';
 
 interface TiptapEditorProps {
   value: JsonValue;
@@ -121,15 +121,17 @@ export function TiptapEditor({
   }
 
   return (
-    <div
-      className={cn(
-        styles.editorWrapper,
-        'clinical-note-tiptap-editor',
-        mode === 'readonly' && 'readonly-mode',
-        className
-      )}
-    >
-      <EditorContent editor={editor} className="editor-content" />
+    <div className="relative">
+      <div
+        className={cn(
+          'clinical-note-tiptap-editor',
+          mode === 'readonly' && 'readonly-mode',
+          className
+        )}
+      >
+        <EditorContent editor={editor} className="editor-content" />
+      </div>
+      {mode === 'edit' && !readOnly && <FloatingBlockToolbar editor={editor} />}
     </div>
   );
 }

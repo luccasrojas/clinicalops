@@ -18,6 +18,20 @@ El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribi
 
 [FORMATO — SALIDA JSON ESPERADA]
 {medical_record_format}
+
+El formato tiene que tener un orden lógico y coherente acorde a la estructura de una nota clínica médica.
+Este es un ejemplo:
+
+Datos personales
+MC
+Enfermedad actual
+Revisión por sistemas
+Antecedentes
+Examen físico
+Paraclínicos
+Impresión dx
+Análisis 
+Plan de manejo
 """
 
 DEFAULT_MEDICAL_RECORD_FORMAT = """

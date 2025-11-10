@@ -69,7 +69,7 @@ function objectToTiptapNodes(
         attrs: {
           level: Math.min(level, 3), // H1-H3 max
           jsonKey: key, // ← CRITICAL: Store original JSON key for reverse transformation
-          isTopLevel: level === 1, // ← Mark level 1 headings as non-editable
+          isNew: false, // ← Mark as original heading (non-editable)
         },
         content: [{ type: 'text', text: formattedKey }],
       });

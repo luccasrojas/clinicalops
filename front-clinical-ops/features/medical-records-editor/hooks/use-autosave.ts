@@ -68,7 +68,7 @@ export function useAutosave({
         setStatus('error');
       }
     },
-    1000,
+    30000, // Auto-save every 30 seconds
     { leading: false }
   );
 
