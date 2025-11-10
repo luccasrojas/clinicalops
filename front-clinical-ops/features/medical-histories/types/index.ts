@@ -1,15 +1,18 @@
+type Metadata = {
+  patientName?: string;
+  diagnosis?: string;
+  createdBy?: string;
+  [key: string]: unknown;
+};
+
 export type MedicalHistory = {
   historyID: string;
   doctorID: string;
   patientID: string;
   recordingURL: string;
-  jsonData: Record<string, any>;
-  metaData: {
-    patientName?: string;
-    diagnosis?: string;
-    createdBy?: string;
-    [key: string]: any;
-  };
+  jsonData: Record<string, unknown>;
+  metaData: Metadata;
+  status?: string;
   createdAt: string;
   updatedAt: string;
   preview?: {
@@ -41,8 +44,8 @@ export type SingleHistoryResponse = {
 
 export type UpdateMedicalHistoryRequest = {
   historyID: string;
-  jsonData: Record<string, any>;
-  metaData?: Record<string, any>;
+  jsonData: Record<string, unknown>;
+  metaData?: Record<string, unknown>;
 };
 
 export type UpdateMedicalHistoryResponse = {

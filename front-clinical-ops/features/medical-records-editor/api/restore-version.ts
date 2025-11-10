@@ -8,9 +8,7 @@ import type {
 export const restoreVersion = (data: RestoreVersionPayload) => {
   return invokeLambdaApi<RestoreVersionResponse>({
     functionName: 'restore_version',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

@@ -3,7 +3,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   useCallback,
   type ReactNode,
@@ -19,39 +18,46 @@ type AuthContextValue = AuthState & {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const [state, setState] = useState<AuthState>({
+const createInitialAuthState = (): AuthState => {
+  try {
+    if (typeof window === 'undefined') {
+      return {
+        user: null,
+        tokens: null,
+        isLoading: false,
+        isAuthenticated: false,
+      };
+    }
+
+    const userStr = window.localStorage.getItem('user');
+    const accessToken = window.localStorage.getItem('accessToken');
+    const idToken = window.localStorage.getItem('idToken');
+    const refreshToken = window.localStorage.getItem('refreshToken');
+
+    if (userStr && accessToken && idToken && refreshToken) {
+      const user = JSON.parse(userStr) as User;
+      return {
+        user,
+        tokens: { accessToken, idToken, refreshToken },
+        isLoading: false,
+        isAuthenticated: true,
+      };
+    }
+  } catch (error) {
+    console.error('Error loading auth state:', error);
+  }
+
+  return {
     user: null,
     tokens: null,
-    isLoading: true,
+    isLoading: false,
     isAuthenticated: false,
-  });
+  };
+};
 
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      const accessToken = localStorage.getItem('accessToken');
-      const idToken = localStorage.getItem('idToken');
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (userStr && accessToken && idToken && refreshToken) {
-        const user = JSON.parse(userStr) as User;
-        setState({
-          user,
-          tokens: { accessToken, idToken, refreshToken },
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } else {
-        setState((prev) => ({ ...prev, isLoading: false }));
-      }
-    } catch (error) {
-      console.error('Error loading auth state:', error);
-      setState((prev) => ({ ...prev, isLoading: false }));
-    }
-  }, []);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [state, setState] = useState<AuthState>(() => createInitialAuthState());
 
   const login = useCallback((user: User, tokens: AuthTokens) => {
     // Save to localStorage

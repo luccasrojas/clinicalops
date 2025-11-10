@@ -26,8 +26,8 @@ export type CreateHistoryFromRecordingResponse = {
     patientID?: string;
     recordingURL: string;
     status: MedicalHistoryStatus;
-    jsonData?: Record<string, any>;
-    metaData?: Record<string, any>;
+    jsonData?: Record<string, unknown>;
+    metaData?: Record<string, unknown>;
     transcription?: string;
     errorMessage?: string;
     createdAt: string;

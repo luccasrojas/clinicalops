@@ -8,9 +8,7 @@ import type {
 export const updateMedicalRecord = (data: UpdateMedicalRecordPayload) => {
   return invokeLambdaApi<UpdateMedicalRecordResponse>({
     functionName: 'update_medical_record',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

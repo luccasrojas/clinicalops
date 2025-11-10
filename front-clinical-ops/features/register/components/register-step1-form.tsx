@@ -27,7 +27,8 @@ export function RegisterStep1Form() {
   const onSubmit = async (data: RegisterStep1FormData) => {
     try {
       setError(null);
-      const { confirmPassword, ...registerData } = data;
+      const { confirmPassword: _confirmPassword, ...registerData } = data;
+      void _confirmPassword;
       const response = await registerMutation.mutateAsync(registerData);
 
       // Store step 1 data and doctorID

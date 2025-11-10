@@ -43,10 +43,34 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log('[Lambda API] Invoking:', functionName);
+    console.log('[Lambda API] Payload:', JSON.stringify(payload, null, 2));
+
+    // Wrap the payload in the expected Lambda event format
+    // Lambda functions expect different formats depending on the request type:
+    // - For POST/PUT/PATCH: { body: "stringified JSON" }
+    // - For GET: { queryStringParameters: {...}, pathParameters: {...} }
+    let lambdaEvent: Record<string, unknown>;
+
+    if (payload && (payload.queryStringParameters || payload.pathParameters)) {
+      // GET request with query/path parameters
+      lambdaEvent = {
+        queryStringParameters: payload.queryStringParameters || {},
+        pathParameters: payload.pathParameters || {},
+      };
+    } else {
+      // POST/PUT/PATCH request with body
+      lambdaEvent = {
+        body: JSON.stringify(payload ?? {}),
+      };
+    }
+
+    console.log('[Lambda API] Lambda event:', JSON.stringify(lambdaEvent, null, 2));
+
     const command = new InvokeCommand({
       FunctionName: functionName,
       InvocationType: invocationType ?? 'RequestResponse',
-      Payload: Buffer.from(JSON.stringify(payload ?? {})),
+      Payload: Buffer.from(JSON.stringify(lambdaEvent)),
     });
 
     const response = await lambdaClient.send(command);
@@ -54,15 +78,19 @@ export async function POST(request: Request) {
     const rawPayload = response.Payload ? textDecoder.decode(response.Payload) : '';
     let parsedPayload: unknown = {};
 
+    console.log('[Lambda API] Raw response:', rawPayload);
+
     try {
       parsedPayload = rawPayload ? JSON.parse(rawPayload) : {};
     } catch (error) {
-      console.error('Error al parsear la respuesta de Lambda', error, rawPayload);
+      console.error('[Lambda API] Error parsing response:', error, rawPayload);
       parsedPayload = rawPayload;
     }
 
     if (response.FunctionError) {
       const errorMessage = extractErrorMessage(parsedPayload) ?? response.FunctionError;
+      console.error('[Lambda API] Function error:', errorMessage);
+      console.error('[Lambda API] Parsed payload:', parsedPayload);
       return NextResponse.json(
         { error: 'Error ejecutando la lambda', details: errorMessage },
         { status: 502 }
@@ -75,6 +103,8 @@ export async function POST(request: Request) {
     if (isLambdaHttpResponse(parsedPayload)) {
       statusCode = Number(parsedPayload.statusCode) || 200;
       const lambdaBody = parsedPayload.body;
+      console.log('[Lambda API] Lambda response statusCode:', statusCode);
+      console.log('[Lambda API] Lambda body:', lambdaBody);
       if (typeof lambdaBody === 'string') {
         try {
           body = JSON.parse(lambdaBody);
@@ -85,6 +115,9 @@ export async function POST(request: Request) {
         body = lambdaBody;
       }
     }
+
+    console.log('[Lambda API] Final body:', body);
+    console.log('[Lambda API] Final statusCode:', statusCode);
 
     return NextResponse.json(body ?? {}, { status: statusCode });
   } catch (error) {

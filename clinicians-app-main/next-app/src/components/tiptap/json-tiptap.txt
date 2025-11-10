@@ -1,0 +1,477 @@
+"use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  useEditor,
+  EditorContent,
+  JSONContent,
+  ReactNodeViewRenderer,
+  NodeViewWrapper,
+} from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Node, mergeAttributes } from "@tiptap/core";
+
+/** ============================
+ * Types
+ * ============================ */
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonArray = JsonObject[]; // this demo focuses on arrays of objects (your schema)
+export interface JsonEditorProps {
+  initialData: JsonValue;
+  onChange?: (data: JsonValue) => void;
+  title?: string;
+}
+
+/** ============================
+ * Inline NodeViews (React) — minimal UI, Tailwind for layout
+ * ============================ */
+
+/** Field (leaf) */
+function FieldView(props: any) {
+  const { node, updateAttributes } = props;
+  const k: string = node.attrs.key ?? "";
+  const v: string = node.attrs.value ?? "";
+
+  return (
+    <NodeViewWrapper
+      as="div"
+      className="border rounded-md p-2 mb-2 bg-white"
+      {...props.attributes}
+      contentEditable={false}
+    >
+      <div className="text-xs font-semibold text-gray-600 mb-1">
+        {k.replaceAll("_", " ")}
+      </div>
+      {/* Keep it simple: single-line input; swap to textarea if you need multiline */}
+      <input
+        className="w-full rounded border px-2 py-1 text-sm"
+        value={v}
+        onChange={(e) => updateAttributes({ value: e.target.value })}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+/** Object (container of fields/objects/arrays) */
+function ObjectView(props: any) {
+  const { node } = props;
+  const label: string | null = node.attrs.key ?? null;
+
+  return (
+    <NodeViewWrapper as="section" className="mb-3" {...props.attributes}>
+      {label ? (
+        <div
+          className="text-[11px] font-medium uppercase text-gray-700 mb-1"
+          contentEditable={false}
+        >
+          {label.replaceAll("_", " ")}
+        </div>
+      ) : null}
+      {/* Child content is editable */}
+      <div className="space-y-2">
+        {props.node.content && (
+          <div className="tiptap-object-content">
+            {props.editor.view.domSerializer}
+          </div>
+        )}
+        {/* Tiptap will render children automatically */}
+        {props.children}
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+/** Array of objects */
+function ArrayView(props: any) {
+  const { node } = props;
+  const label: string = node.attrs.key ?? "";
+
+  return (
+    <NodeViewWrapper as="section" className="mb-3" {...props.attributes}>
+      <div
+        className="text-[11px] font-medium uppercase text-gray-700 mb-1"
+        contentEditable={false}
+      >
+        {label.replaceAll("_", " ")}
+      </div>
+      <div className="space-y-2">{props.children}</div>
+    </NodeViewWrapper>
+  );
+}
+
+/** Array item (object) */
+function ArrayItemView(props: any) {
+  const { node } = props;
+  const idx: number = node.attrs.index ?? 0;
+
+  return (
+    <NodeViewWrapper
+      as="div"
+      className="border rounded-md p-2 bg-gray-50"
+      {...props.attributes}
+    >
+      <div className="text-[11px] text-gray-500 mb-1" contentEditable={false}>
+        [{idx}]
+      </div>
+      {props.children}
+    </NodeViewWrapper>
+  );
+}
+
+/** ============================
+ * Tiptap Nodes (schema)
+ * ============================ */
+
+/** jsonField: leaf key/value */
+const JsonField = Node.create({
+  name: "jsonField",
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes() {
+    return {
+      key: { default: "" },
+      value: { default: "" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "div[data-json-field]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["div", mergeAttributes(HTMLAttributes, { "data-json-field": "1" })];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(FieldView);
+  },
+});
+
+/** jsonObject: container of jsonField | jsonObject | jsonArray */
+const JsonObjectNode = Node.create({
+  name: "jsonObject",
+  group: "block",
+  content: "(jsonField|jsonObject|jsonArray)*",
+  defining: true,
+  addAttributes() {
+    return {
+      key: { default: null }, // null for root object
+    };
+  },
+  parseHTML() {
+    return [{ tag: "section[data-json-object]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "section",
+      mergeAttributes(HTMLAttributes, { "data-json-object": "1" }),
+      0,
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ObjectView);
+  },
+});
+
+/** jsonArray: container of jsonArrayItem (objects) */
+const JsonArrayNode = Node.create({
+  name: "jsonArray",
+  group: "block",
+  content: "jsonArrayItem*",
+  addAttributes() {
+    return {
+      key: { default: "" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "section[data-json-array]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "section",
+      mergeAttributes(HTMLAttributes, { "data-json-array": "1" }),
+      0,
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ArrayView);
+  },
+});
+
+/** jsonArrayItem: wraps a jsonObject (the item) */
+const JsonArrayItemNode = Node.create({
+  name: "jsonArrayItem",
+  group: "block",
+  content: "jsonObject",
+  defining: true,
+  addAttributes() {
+    return {
+      index: { default: 0 },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "div[data-json-array-item]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, { "data-json-array-item": "1" }),
+      0,
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ArrayItemView);
+  },
+});
+
+/** Root doc: must start with a jsonObject (the whole JSON) */
+const CustomDocument = Node.create({
+  name: "doc",
+  topNode: true,
+  content: "jsonObject",
+});
+
+/** ============================
+ * JSON ⇄ Tiptap (exact round-trip, nested)
+ * ============================ */
+
+function jsonToDoc(data: JsonValue): JSONContent {
+  // Root must be an object (your schema). If not, wrap.
+  const rootObj: JsonObject = isPlainObject(data)
+    ? (data as JsonObject)
+    : { value: data as JsonPrimitive };
+  return {
+    type: "doc",
+    content: [objectToNode(rootObj, null)],
+  };
+}
+
+function objectToNode(obj: JsonObject, key: string | null): JSONContent {
+  const children: JSONContent[] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (isPlainObject(v)) {
+      children.push(objectToNode(v as JsonObject, k));
+    } else if (Array.isArray(v)) {
+      children.push(arrayToNode(v as JsonArray, k));
+    } else {
+      children.push({
+        type: "jsonField",
+        attrs: { key: k, value: primitiveToString(v as JsonPrimitive) },
+      });
+    }
+  }
+  return {
+    type: "jsonObject",
+    attrs: { key },
+    content: children,
+  };
+}
+
+function arrayToNode(arr: JsonArray, key: string): JSONContent {
+  const items: JSONContent[] = arr.map((item, i) => ({
+    type: "jsonArrayItem",
+    attrs: { index: i },
+    content: [
+      objectToNode(isPlainObject(item) ? (item as JsonObject) : {}, null),
+    ],
+  }));
+  return { type: "jsonArray", attrs: { key }, content: items };
+}
+
+function docToJson(doc: JSONContent): JsonValue {
+  if (!doc || doc.type !== "doc" || !doc.content?.length) return {};
+  const rootObjNode = doc.content[0];
+  if (rootObjNode.type !== "jsonObject") return {};
+  return nodeToObject(rootObjNode);
+}
+
+function nodeToObject(objNode: JSONContent): JsonObject {
+  const out: JsonObject = {};
+  for (const child of objNode.content ?? []) {
+    if (child.type === "jsonField") {
+      const k = String(child.attrs?.key ?? "");
+      const v = parsePrimitive(String(child.attrs?.value ?? ""));
+      out[k] = v;
+    } else if (child.type === "jsonObject") {
+      const k = String(child.attrs?.key ?? "");
+      out[k] = nodeToObject(child);
+    } else if (child.type === "jsonArray") {
+      const k = String(child.attrs?.key ?? "");
+      out[k] = nodeToArray(child);
+    }
+  }
+  return out;
+}
+
+function nodeToArray(arrNode: JSONContent): JsonArray {
+  const out: JsonArray = [];
+  for (const item of arrNode.content ?? []) {
+    if (item.type !== "jsonArrayItem") continue;
+    const objChild = (item.content ?? []).find(
+      (n: any) => n.type === "jsonObject"
+    );
+    out.push(objChild ? nodeToObject(objChild) : {});
+  }
+  return out;
+}
+
+/** Helpers */
+function isPlainObject(v: any): v is JsonObject {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+function primitiveToString(v: JsonPrimitive): string {
+  if (v === null) return "";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return String(v);
+}
+function parsePrimitive(s: string): JsonPrimitive {
+  // Keep it simple: if it looks like a number → number; "true"/"false" → boolean; empty → "";
+  if (s === "true") return true;
+  if (s === "false") return false;
+  if (s.trim() === "") return "";
+  const n = Number(s);
+  return isNaN(n) ? s : (n as number);
+}
+
+/** ============================
+ * Editor Component
+ * ============================ */
+export const JsonTiptapEditor: React.FC<JsonEditorProps> = ({
+  initialData,
+  onChange,
+  title = "Nota clínica",
+}) => {
+  const initialDoc = useMemo(() => jsonToDoc(initialData), [initialData]);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // we’re not using paragraphs/headings; structure is our custom nodes
+        document: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        codeBlock: false,
+        blockquote: false,
+        horizontalRule: false,
+        heading: false,
+        paragraph: false,
+        dropcursor: true,
+        gapcursor: true,
+        history: true,
+      }),
+      CustomDocument,
+      JsonField,
+      JsonObjectNode,
+      JsonArrayNode,
+      JsonArrayItemNode,
+    ],
+    content: initialDoc,
+    immediatelyRender: false,
+    onUpdate: ({ editor }) => {
+      const data = docToJson(editor.getJSON());
+      onChange?.(data);
+    },
+  });
+
+  // fire initial onChange once the editor mounts
+  useEffect(() => {
+    if (editor) onChange?.(docToJson(editor.getJSON()));
+  }, [editor, onChange]);
+
+  return (
+    <div className="border rounded-lg bg-white">
+      <div className="px-3 py-2 border-b text-sm font-medium">{title}</div>
+      <div className="p-3">
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+};
+
+/** ============================
+ * Demo wrapper (optional)
+ * ============================ */
+const demoData: JsonValue = {
+  datos_personales: {
+    edad: "",
+    sexo: "",
+    servicio_lugar: "",
+    acompanante: "",
+  },
+  motivo_consulta: "<palabras literales del paciente>",
+  enfermedad_actual:
+    "<relato cronopatológico en prosa clínica teniendo en cuenta unidad de tiempo respecto a hoy para la descripción sintomática>",
+  antecedentes_relevantes: {
+    personales: "",
+    quirurgicos: "",
+    farmacologicos: "",
+    alergias: "",
+    ginecoobstetricos: "",
+  },
+  revision_por_sistemas: {
+    general_constitucional: "",
+    piel: "",
+    ojos_orl: "",
+    respiratorio: "",
+    cardiovascular: "",
+    gastrointestinal: "",
+    genitourinario: "",
+    musculo_esqueletico: "",
+    neurologico: "",
+    endocrino: "",
+  },
+  examen_fisico: {
+    estado_general: "",
+    cabeza_orl: "",
+    cuello: "",
+    respiratorio: "<IPPA>",
+    cardiovascular: "",
+    abdomen: "",
+    genitourinario: "",
+    musculo_esqueletico: "",
+    neurologico: "",
+    piel_teg: "",
+  },
+  paraclinicos_imagenes: [{ fecha: "", estudio: "", hallazgos: "" }],
+  impresion_diagnostica: [
+    { diagnostico: "", cie10: "" },
+    { diagnostico: "", cie10: "" },
+  ],
+  analisis_clinico:
+    "<Paciente de {{edad}} años con diagnóstico actual de {{Dx principal}} con {{antecedente relevante si aplica}}. Actualmente {{estado/estabilidad, hallazgos clave}}. Conductas: {{qué haremos y por qué}}. Solicitudes: {{laboratorios/imágenes}} y propósito clínico.>",
+  plan_manejo: {
+    disposicion: "<Alta | Observación | Hospitalización | UCI>",
+    dieta_nutricion: "<ayuno, líquida, blanda, normal; soporte si aplica>",
+    oxigeno_ventilacion: "<aire ambiente | cánula | máscara; metas SpO2>",
+    liquidos_accesos: "<VO/IV, soluciones, balance, accesos>",
+    medicacion:
+      "<analgesia; sintomáticos; antimicrobianos con indicación y duración; profilaxis TE; gastroprotección; ajustes de crónicos>",
+    procedimientos_curaciones: "",
+    monitorizacion_metas: "<signos, diuresis, glucemias, escalas>",
+    paraclinicos_imagenes_solicitados: "<pruebas + objetivo clínico>",
+    interconsultas_referencia: "<servicio y motivo>",
+    rehabilitacion_enfermeria: "<órdenes>",
+    educacion_advertencias: "<puntos clave y alarmas, según diagnóstico>",
+    seguimiento_citas: "<cuándo, con quién, metas>",
+  },
+  notas_calidad_datos: "<inconsistencias, datos críticos ausentes>",
+};
+
+export default function JsonTiptapDemo() {
+  const [live, setLive] = useState<JsonValue>(demoData);
+  return (
+    <div className="flex gap-4 p-4">
+      <div className="">
+        <JsonTiptapEditor initialData={demoData} onChange={setLive} />
+      </div>
+      <div className="border rounded-lg bg-white p-3">
+        <div className="text-sm font-medium mb-2">Live JSON</div>
+        <pre className="text-xs max-h-[70vh] overflow-auto">
+          {JSON.stringify(live, null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+}

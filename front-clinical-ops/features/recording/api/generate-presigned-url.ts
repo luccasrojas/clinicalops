@@ -7,9 +7,7 @@ export const generatePresignedUrl = (
 ): Promise<PresignedUrlResponse> => {
   return invokeLambdaApi<PresignedUrlResponse>({
     functionName: 'generate_presigned_url',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

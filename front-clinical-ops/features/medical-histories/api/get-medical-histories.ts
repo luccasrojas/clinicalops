@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import type {
   MedicalHistoriesResponse,
   MedicalHistoriesFilters,
@@ -28,11 +28,20 @@ export const getMedicalHistories = (
   });
 };
 
+type MedicalHistoriesQueryKey = ['medical-histories', MedicalHistoriesFilters];
+
+type MedicalHistoriesQueryOptions = UseQueryOptions<
+  MedicalHistoriesResponse,
+  Error,
+  MedicalHistoriesResponse,
+  MedicalHistoriesQueryKey
+>;
+
 export const getMedicalHistoriesQueryOptions = (
   filters: MedicalHistoriesFilters
 ) => {
   return queryOptions({
-    queryKey: ['medical-histories', filters],
+    queryKey: ['medical-histories', filters] as MedicalHistoriesQueryKey,
     queryFn: () => getMedicalHistories(filters),
     enabled: !!filters.doctorID,
   });
@@ -40,7 +49,7 @@ export const getMedicalHistoriesQueryOptions = (
 
 export const useMedicalHistories = (
   filters: MedicalHistoriesFilters,
-  queryConfig?: any
+  queryConfig?: Omit<MedicalHistoriesQueryOptions, 'queryKey' | 'queryFn'>
 ) => {
   return useQuery({
     ...getMedicalHistoriesQueryOptions(filters),

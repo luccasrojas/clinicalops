@@ -10,9 +10,7 @@ export const createHistoryFromRecording = (
 ): Promise<CreateHistoryFromRecordingResponse> => {
   return invokeLambdaApi<CreateHistoryFromRecordingResponse>({
     functionName: 'create_medical_history_from_recording',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

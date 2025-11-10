@@ -34,7 +34,7 @@ export const downloadAsPdf = (data: JsonValue, fileName: string) => {
   const maxWidth = 500;
   const lines = doc.splitTextToSize(text, maxWidth);
 
-  lines.forEach((line, index) => {
+  lines.forEach((line: string, index: number) => {
     doc.text(line, 40, 60 + index * lineHeight);
   });
 

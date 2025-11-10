@@ -22,7 +22,8 @@ export type MedicalRecordResponse = {
 
 export type UpdateMedicalRecordPayload = {
   historyID: string;
-  structuredClinicalNote: string;
+  structuredClinicalNote?: string;
+  estructuraClinica?: string;
   userId: string;
   changeDescription?: string;
 };

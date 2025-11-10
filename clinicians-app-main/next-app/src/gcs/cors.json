@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://prartis.com", "http://localhost:3000"],
+    "method": ["GET", "PUT", "POST", "HEAD"],
+    "responseHeader": ["Content-Type", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
+  }
+]

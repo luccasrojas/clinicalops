@@ -10,9 +10,7 @@ export const updateMedicalHistory = (
 ): Promise<UpdateMedicalHistoryResponse> => {
   return invokeLambdaApi<UpdateMedicalHistoryResponse>({
     functionName: 'update_medical_history',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

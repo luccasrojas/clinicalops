@@ -37,24 +37,47 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   const history = (historyData as SingleHistoryResponse | undefined)?.history;
   const structuredNote = recordData?.record?.structuredClinicalNote ?? '{}';
 
-  const parsedNote = useMemo<JsonValue>(() => {
+  // Parse full JSON (includes tipo_historia, especialidad_probable, estructura_historia_clinica)
+  const fullNote = useMemo<JsonValue>(() => {
     try {
-      return JSON.parse(structuredNote);
-    } catch {
+      const parsed = JSON.parse(structuredNote);
+      console.log('[MedicalHistoryViewer] Parsed fullNote:', parsed);
+      return parsed;
+    } catch (error) {
+      console.error('[MedicalHistoryViewer] Failed to parse structuredNote:', error);
       return {};
     }
   }, [structuredNote]);
 
-  const { value, resetValue, updateValue } = useEditorState(parsedNote);
+  // Extract ONLY estructura_historia_clinica for editing
+  const estructuraHistoriaClinica = useMemo<JsonValue>(() => {
+    if (
+      fullNote &&
+      typeof fullNote === 'object' &&
+      !Array.isArray(fullNote) &&
+      'estructura_historia_clinica' in fullNote
+    ) {
+      console.log('[MedicalHistoryViewer] Using estructura_historia_clinica:', fullNote.estructura_historia_clinica);
+      return fullNote.estructura_historia_clinica as JsonValue;
+    }
+    // Fallback: if estructura_historia_clinica doesn't exist, use the whole note
+    // This handles legacy data where the structure might be different
+    console.log('[MedicalHistoryViewer] Using fallback (fullNote):', fullNote);
+    return fullNote || {};
+  }, [fullNote]);
+
+  const { value, resetValue, updateValue } = useEditorState(estructuraHistoriaClinica);
 
   useEffect(() => {
-    resetValue(parsedNote);
-  }, [parsedNote, resetValue]);
+    resetValue(estructuraHistoriaClinica);
+  }, [estructuraHistoriaClinica, resetValue]);
 
   const { saveStatus, saveDraft } = useAutosave({
     historyID,
     userId,
-    initialValue: parsedNote,
+    initialValue: estructuraHistoriaClinica,
+    fullNote: fullNote, // Pass full JSON for metadata preservation
+    changeDescription: 'Edición del médico',
   });
 
   useMedicalRecordWebSocket({

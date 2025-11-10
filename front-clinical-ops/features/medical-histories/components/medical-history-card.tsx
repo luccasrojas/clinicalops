@@ -18,22 +18,23 @@ export function MedicalHistoryCard({
   onEdit,
   onDownload,
 }: MedicalHistoryCardProps) {
-  const patientName =
+  const patientName = String(
     history.metaData?.patientName ||
     history.jsonData?.nombre_paciente ||
-    history.jsonData?.paciente?.nombre ||
-    'Paciente Desconocido';
+    (history.jsonData?.paciente as { nombre?: string })?.nombre ||
+    'Paciente Desconocido'
+  );
 
-  const diagnosis =
+  const diagnosis = String(
     history.preview?.diagnosis ||
     history.jsonData?.diagnostico ||
     history.jsonData?.diagnosis ||
-    'Sin diagnóstico';
+    'Sin diagnóstico'
+  );
 
-  const symptoms =
-    history.preview?.symptoms ||
+  const symptoms = (history.preview?.symptoms ||
     history.jsonData?.sintomas ||
-    history.jsonData?.symptoms;
+    history.jsonData?.symptoms) as string | undefined;
 
   const createdDate = history.createdAt
     ? format(new Date(history.createdAt), "d 'de' MMMM, yyyy HH:mm a", {

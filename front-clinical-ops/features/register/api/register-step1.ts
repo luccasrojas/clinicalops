@@ -8,9 +8,7 @@ export const registerStep1 = (
 ): Promise<RegisterStep1Response> => {
   return invokeLambdaApi<RegisterStep1Response>({
     functionName: 'auth_register_step1',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

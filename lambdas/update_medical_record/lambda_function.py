@@ -43,6 +43,7 @@ def lambda_handler(event, context):
 
         history_id = body.get('historyID')
         structured_note = body.get('structuredClinicalNote')
+        estructura_clinica = body.get('estructuraClinica')
         user_id = body.get('userId')
         change_description = body.get('changeDescription', 'Manual edit')
 
@@ -54,11 +55,11 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'historyID is required'})
             }
 
-        if not structured_note:
+        if not structured_note and not estructura_clinica:
             return {
                 'statusCode': 400,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'structuredClinicalNote is required'})
+                'body': json.dumps({'error': 'structuredClinicalNote or estructuraClinica is required'})
             }
 
         if not user_id:
@@ -69,14 +70,27 @@ def lambda_handler(event, context):
             }
 
         # Validate JSON structure
-        try:
-            json.loads(structured_note)
-        except json.JSONDecodeError:
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'structuredClinicalNote must be valid JSON string'})
-            }
+        parsed_structure = None
+        if structured_note:
+            try:
+                parsed_structure = json.loads(structured_note)
+            except json.JSONDecodeError:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'structuredClinicalNote must be valid JSON string'})
+                }
+
+        parsed_estructura = None
+        if estructura_clinica:
+            try:
+                parsed_estructura = json.loads(estructura_clinica)
+            except json.JSONDecodeError:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'estructuraClinica must be valid JSON string'})
+                }
 
         # Get current record to check if it exists and user has permissions
         response = medical_histories_table.get_item(Key={'historyID': history_id})
@@ -103,7 +117,37 @@ def lambda_handler(event, context):
             except Exception:
                 current_note = '{}'
 
-        if current_note == structured_note:
+        # Always start with current note to preserve metadata
+        try:
+            updated_note_obj = json.loads(current_note) if current_note else {}
+        except json.JSONDecodeError:
+            updated_note_obj = {}
+
+        # Update only estructura_historia_clinica (never replace root keys)
+        if parsed_estructura is not None:
+            # User edited only estructura_historia_clinica
+            updated_note_obj['estructura_historia_clinica'] = parsed_estructura
+            print(f"Updated estructura_historia_clinica via estructuraClinica parameter")
+        elif parsed_structure is not None:
+            # Frontend sent full structure, extract estructura_historia_clinica
+            if 'estructura_historia_clinica' in parsed_structure:
+                updated_note_obj['estructura_historia_clinica'] = parsed_structure['estructura_historia_clinica']
+                print(f"Updated estructura_historia_clinica from structuredClinicalNote")
+            else:
+                # Fallback: assume the whole thing is estructura_historia_clinica
+                updated_note_obj['estructura_historia_clinica'] = parsed_structure
+                print(f"Warning: No estructura_historia_clinica key found, treating whole payload as estructura")
+
+        # Preserve tipo_historia and especialidad_probable from current record
+        # These should NEVER be overwritten by editor changes
+        if 'tipo_historia' not in updated_note_obj and 'tipo_historia' in current_record.get('jsonData', {}):
+            updated_note_obj['tipo_historia'] = current_record['jsonData']['tipo_historia']
+        if 'especialidad_probable' not in updated_note_obj and 'especialidad_probable' in current_record.get('jsonData', {}):
+            updated_note_obj['especialidad_probable'] = current_record['jsonData']['especialidad_probable']
+
+        updated_note_str = json.dumps(updated_note_obj, ensure_ascii=False)
+
+        if updated_note_str == current_note:
             print(f"No changes detected for history {history_id}, skipping update")
             return {
                 'statusCode': 200,
@@ -139,14 +183,14 @@ def lambda_handler(event, context):
 
         update_expression = 'SET structuredClinicalNote = :note, lastEditedAt = :timestamp, lastEditedBy = :user'
         expression_values = {
-            ':note': structured_note,
+            ':note': updated_note_str,
             ':timestamp': update_timestamp,
             ':user': user_id
         }
 
         if not current_record.get('structuredClinicalNoteOriginal'):
             update_expression += ', structuredClinicalNoteOriginal = if_not_exists(structuredClinicalNoteOriginal, :original)'
-            expression_values[':original'] = current_note or structured_note
+            expression_values[':original'] = current_note or updated_note_str
 
         medical_histories_table.update_item(
             Key={'historyID': history_id},
@@ -158,7 +202,7 @@ def lambda_handler(event, context):
 
         # Broadcast update via WebSocket (if connections exist)
         try:
-            broadcast_update(history_id, user_id, structured_note)
+            broadcast_update(history_id, user_id, updated_note_str)
         except Exception as e:
             print(f"Warning: Failed to broadcast WebSocket update: {e}")
             # Continue anyway - WebSocket is optional

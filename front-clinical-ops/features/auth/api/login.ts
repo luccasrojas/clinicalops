@@ -10,9 +10,7 @@ export type LoginData = {
 export const login = (data: LoginData): Promise<LoginResponse> => {
   return invokeLambdaApi<LoginResponse>({
     functionName: 'auth_login',
-    payload: {
-      body: JSON.stringify(data),
-    },
+    payload: data,
   });
 };
 

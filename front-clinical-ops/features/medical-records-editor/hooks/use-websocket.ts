@@ -26,37 +26,41 @@ export function useMedicalRecordWebSocket({
       return;
     }
 
+    const url = new URL(wsUrl);
+    url.searchParams.set('historyID', historyID);
+    url.searchParams.set('userId', userId);
+
+    const animationFrame = requestAnimationFrame(() => setStatus('connecting'));
+    let socket: WebSocket;
     try {
-      const url = new URL(wsUrl);
-      url.searchParams.set('historyID', historyID);
-      url.searchParams.set('userId', userId);
-
-      setStatus('connecting');
-      const socket = new WebSocket(url.toString());
-      wsRef.current = socket;
-
-      socket.onopen = () => setStatus('connected');
-      socket.onclose = () => setStatus('idle');
-      socket.onerror = () => setStatus('error');
-      socket.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload?.action === 'update' && payload.historyID === historyID) {
-            queryClient.invalidateQueries({ queryKey: ['medical-record', historyID] });
-          }
-          onMessage?.(payload);
-        } catch (error) {
-          console.error('Invalid WebSocket message', error);
-        }
-      };
-
-      return () => {
-        socket.close();
-      };
+      socket = new WebSocket(url.toString());
     } catch (error) {
+      cancelAnimationFrame(animationFrame);
+      requestAnimationFrame(() => setStatus('error'));
       console.error('Failed to establish WebSocket connection', error);
-      setStatus('error');
+      return;
     }
+    wsRef.current = socket;
+
+    socket.onopen = () => setStatus('connected');
+    socket.onclose = () => setStatus('idle');
+    socket.onerror = () => setStatus('error');
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload?.action === 'update' && payload.historyID === historyID) {
+          queryClient.invalidateQueries({ queryKey: ['medical-record', historyID] });
+        }
+        onMessage?.(payload);
+      } catch (error) {
+        console.error('Invalid WebSocket message', error);
+      }
+    };
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      socket.close();
+    };
   }, [historyID, userId, onMessage, queryClient]);
 
   return {
