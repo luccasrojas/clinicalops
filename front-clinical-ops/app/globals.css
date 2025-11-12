@@ -181,16 +181,23 @@ body {
 }
 
 /* ==========================================================================
-   Clinical Notes Editor Styles
+   Clinical Notes Editor - Professional Medical UI
    ========================================================================== */
 
 .clinical-note-tiptap-editor {
   width: 100%;
-  min-height: 500px;
+  min-height: 600px;
   border-radius: 0.5rem;
-  border: 1px solid rgb(229 231 235);
+  border: 2px solid rgb(229 231 235);
   background-color: white;
-  padding: 1.5rem;
+  padding: 2rem;
+  font-family: var(--font-sans);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clinical-note-tiptap-editor:focus-within {
+  border-color: rgb(249 115 22);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
 }
 
 /* Disable browser spellcheck red underlines */
@@ -209,7 +216,7 @@ body {
 
 .clinical-note-tiptap-editor .ProseMirror {
   outline: none;
-  min-height: 450px;
+  min-height: 550px;
   caret-color: #fa8f38;
 }
 
@@ -221,87 +228,164 @@ body {
   outline: none;
 }
 
-/* Headings (JSON Keys) - Editables */
-.clinical-note-tiptap-editor h1,
-.clinical-note-tiptap-editor h2,
-.clinical-note-tiptap-editor h3 {
-  font-weight: 700;
-  color: rgb(17 24 39);
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-  cursor: text;
-}
+/* ==========================================================================
+   Headings Hierarchy - Non-Editable Original Headings
+   ========================================================================== */
 
+/* H1 - Top Level Sections (Indigo - Non Editable) */
 .clinical-note-tiptap-editor h1 {
-  font-size: 1.125rem;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-  text-indent: 0.5em;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgb(99 102 241);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 2rem 0 0.75rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid rgb(99 102 241);
+  cursor: not-allowed;
+  user-select: none;
+  position: relative;
 }
 
+.clinical-note-tiptap-editor h1::before {
+  content: '📋';
+  margin-right: 0.5rem;
+}
+
+/* H2 - Sub-Sections (Dark Gray - Non Editable) */
 .clinical-note-tiptap-editor h2 {
-  font-size: 1rem;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  margin-left: 2em;
-}
-
-.clinical-note-tiptap-editor h3 {
-  font-size: 0.875rem;
-  margin-top: 0.75rem;
-  margin-bottom: 0.25rem;
-  text-indent: 4em;
-}
-
-/* Paragraphs with hierarchical indentation */
-.clinical-note-tiptap-editor p {
+  font-size: 1.05rem;
+  font-weight: 600;
   color: rgb(55 65 81);
-  margin-bottom: 0.5rem;
-  line-height: 1.6;
+  text-transform: capitalize;
+  margin: 1.25rem 0 0.5rem 2rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid rgb(219 234 254);
+  cursor: not-allowed;
+  user-select: none;
 }
 
-.clinical-note-tiptap-editor .p-level-1 {
-  margin-left: 0.75em;
+.clinical-note-tiptap-editor h2::before {
+  content: '▸';
+  margin-right: 0.5rem;
+  color: rgb(59 130 246);
 }
 
-.clinical-note-tiptap-editor .p-level-2 {
-  margin-left: 2.35em;
+/* H3 - Sub-Sub-Sections (Gray - Non Editable) */
+.clinical-note-tiptap-editor h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgb(75 85 99);
+  margin: 1rem 0 0.5rem 4rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid rgb(191 219 254);
+  cursor: not-allowed;
+  user-select: none;
 }
 
-.clinical-note-tiptap-editor .p-level-3 {
-  text-indent: 4.35em;
+.clinical-note-tiptap-editor h3::before {
+  content: '◦';
+  margin-right: 0.5rem;
+  color: rgb(96 165 250);
 }
 
-.clinical-note-tiptap-editor .p-level-4 {
-  margin-left: 6em;
+/* New Headings (User-Created) - Editable */
+.clinical-note-tiptap-editor h1[data-is-new='true'],
+.clinical-note-tiptap-editor h2[data-is-new='true'],
+.clinical-note-tiptap-editor h3[data-is-new='true'] {
+  cursor: text;
+  user-select: text;
+  opacity: 0.8;
+  font-style: italic;
 }
 
-.clinical-note-tiptap-editor .p-level-5 {
-  margin-left: 7.5em;
+.clinical-note-tiptap-editor h1[data-is-new='true']::after,
+.clinical-note-tiptap-editor h2[data-is-new='true']::after,
+.clinical-note-tiptap-editor h3[data-is-new='true']::after {
+  content: '✎';
+  margin-left: 0.5rem;
+  font-size: 0.75em;
+  color: rgb(249 115 22);
 }
 
-/* Placeholder styles */
-.clinical-note-tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
-  color: rgb(156 163 175);
+/* ==========================================================================
+   Paragraphs (Texto Editable) - Hierarchical Indentation
+   ========================================================================== */
+
+.clinical-note-tiptap-editor p {
+  line-height: 1.75;
+  color: rgb(31 41 55);
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  cursor: text;
+  transition: background-color 0.15s ease;
+}
+
+/* Level 1 - Direct children of H1 */
+.clinical-note-tiptap-editor p[data-level='1'] {
+  margin-left: 1.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid transparent;
+}
+
+/* Level 2 - Children of H2 */
+.clinical-note-tiptap-editor p[data-level='2'] {
+  margin-left: 3.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid rgb(219 234 254);
+  background-color: rgba(219, 234, 254, 0.1);
+}
+
+/* Level 3 - Children of H3 */
+.clinical-note-tiptap-editor p[data-level='3'] {
+  margin-left: 5.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid rgb(191 219 254);
+  background-color: rgba(191, 219, 254, 0.15);
+}
+
+/* Level 4 - Deep nesting */
+.clinical-note-tiptap-editor p[data-level='4'] {
+  margin-left: 7rem;
+  padding-left: 1rem;
+  border-left: 2px solid rgb(147 197 253);
+  background-color: rgba(147, 197, 253, 0.2);
+}
+
+/* Hover effects for paragraphs */
+.clinical-note-tiptap-editor p:hover {
+  background-color: rgba(249, 250, 251, 0.5);
+}
+
+/* ==========================================================================
+   Placeholder Styles
+   ========================================================================== */
+
+.clinical-note-tiptap-editor .ProseMirror p.is-empty::before {
   content: attr(data-placeholder);
-  float: left;
+  color: rgb(156 163 175);
   pointer-events: none;
+  float: left;
   height: 0;
 }
 
-.clinical-note-tiptap-editor .ProseMirror h1.is-editor-empty:first-child::before,
-.clinical-note-tiptap-editor .ProseMirror h2.is-editor-empty:first-child::before,
-.clinical-note-tiptap-editor .ProseMirror h3.is-editor-empty:first-child::before {
-  color: rgb(156 163 175);
+.clinical-note-tiptap-editor .ProseMirror h1.is-empty::before,
+.clinical-note-tiptap-editor .ProseMirror h2.is-empty::before,
+.clinical-note-tiptap-editor .ProseMirror h3.is-empty::before {
   content: attr(data-placeholder);
-  float: left;
+  color: rgb(156 163 175);
   pointer-events: none;
+  float: left;
   height: 0;
 }
 
-/* Read-only mode */
+/* ==========================================================================
+   Read-Only Mode
+   ========================================================================== */
+
 .clinical-note-tiptap-editor.readonly-mode {
   background-color: rgb(249 250 251);
+  border-color: rgb(229 231 235);
   cursor: default;
 }
 
@@ -311,144 +395,72 @@ body {
 
 .clinical-note-tiptap-editor.readonly-mode h1,
 .clinical-note-tiptap-editor.readonly-mode h2,
-.clinical-note-tiptap-editor.readonly-mode h3 {
+.clinical-note-tiptap-editor.readonly-mode h3,
+.clinical-note-tiptap-editor.readonly-mode p {
   cursor: default;
 }
 
-/* Focus state */
-.clinical-note-tiptap-editor:not(.readonly-mode):focus-within {
-  border-color: rgb(249 115 22);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
-}
-
-/* Empty state */
-.clinical-note-tiptap-editor .ProseMirror:empty::before {
-  color: rgb(156 163 175);
-  content: 'No hay contenido clínico. Comienza a escribir...';
-  pointer-events: none;
-}
-
-/* Smooth transitions */
-.clinical-note-tiptap-editor * {
-  transition: margin 0.2s ease, text-indent 0.2s ease;
-}
-
 /* ==========================================================================
-   Top-Level Headings (h1) - Non-Editable, Purple Styling
+   Dark Mode
    ========================================================================== */
 
-.clinical-note-tiptap-editor h1 {
-  margin: 1.5rem 0 0.75rem 0;
-  font-weight: 700;
-  font-size: 1.5rem;
-  color: rgb(99 102 241);
-  cursor: not-allowed;
-  user-select: none;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
+.dark .clinical-note-tiptap-editor {
+  background-color: rgb(31 41 55);
+  border-color: rgb(55 65 81);
 }
-
-/* ==========================================================================
-   Sub-Headings (h2, h3) - All Editable
-   ========================================================================== */
-
-.clinical-note-tiptap-editor h2,
-.clinical-note-tiptap-editor h3 {
-  margin: 1rem 0 0.5rem 0;
-  font-weight: 600;
-  color: rgb(55 65 81);
-  cursor: text;
-  text-transform: capitalize;
-}
-
-.clinical-note-tiptap-editor h2 {
-  font-size: 1.125rem;
-}
-
-.clinical-note-tiptap-editor h3 {
-  font-size: 1rem;
-  margin-left: 1rem;
-  color: rgb(75 85 99);
-}
-
-/* ==========================================================================
-   Dark Mode Variants
-   ========================================================================== */
 
 .dark .clinical-note-tiptap-editor h1 {
   color: rgb(167 139 250);
+  border-left-color: rgb(167 139 250);
 }
 
-.dark .clinical-note-tiptap-editor h2,
-.dark .clinical-note-tiptap-editor h3 {
+.dark .clinical-note-tiptap-editor h2 {
   color: rgb(209 213 219);
+  border-left-color: rgb(30 58 138);
 }
 
-/* Paragraph levels */
-.clinical-note-tiptap-editor p {
-  line-height: 1.75;
-  color: rgb(31 41 55);
-  margin: 0.5rem 0;
-}
-
-.clinical-note-tiptap-editor .p-level-1 {
-  margin-left: 0;
-  padding-left: 1rem;
-  border-left: 2px solid transparent;
-}
-
-.clinical-note-tiptap-editor .p-level-2 {
-  margin-left: 1.5rem;
-  padding-left: 1rem;
-  border-left: 2px solid rgb(219 234 254);
-}
-
-.clinical-note-tiptap-editor .p-level-3 {
-  margin-left: 3rem;
-  padding-left: 1rem;
-  border-left: 2px solid rgb(191 219 254);
-}
-
-.clinical-note-tiptap-editor .p-level-4 {
-  margin-left: 4.5rem;
-  padding-left: 1rem;
-  border-left: 2px solid rgb(147 197 253);
+.dark .clinical-note-tiptap-editor h3 {
+  color: rgb(156 163 175);
+  border-left-color: rgb(29 78 216);
 }
 
 .dark .clinical-note-tiptap-editor p {
   color: rgb(229 231 235);
 }
 
-.dark .clinical-note-tiptap-editor .p-level-2 {
+.dark .clinical-note-tiptap-editor p[data-level='2'] {
   border-left-color: rgb(30 58 138);
+  background-color: rgba(30, 58, 138, 0.1);
 }
 
-.dark .clinical-note-tiptap-editor .p-level-3 {
+.dark .clinical-note-tiptap-editor p[data-level='3'] {
   border-left-color: rgb(29 78 216);
+  background-color: rgba(29, 78, 216, 0.15);
 }
 
-.dark .clinical-note-tiptap-editor .p-level-4 {
+.dark .clinical-note-tiptap-editor p[data-level='4'] {
   border-left-color: rgb(37 99 235);
+  background-color: rgba(37, 99, 235, 0.2);
 }
 
-/* Print styles */
+.dark .clinical-note-tiptap-editor.readonly-mode {
+  background-color: rgb(17 24 39);
+}
+
+/* ==========================================================================
+   Accessibility and Print
+   ========================================================================== */
+
 @media print {
   .clinical-note-tiptap-editor {
     border: none;
-    box-shadow: none;
+    padding: 0;
   }
 
-  .clinical-note-tiptap-editor .ProseMirror {
-    caret-color: transparent;
-  }
-
-  .clinical-note-tiptap-editor h1,
-  .clinical-note-tiptap-editor h2,
-  .clinical-note-tiptap-editor h3 {
-    cursor: default;
-  }
-
-  .clinical-note-tiptap-editor .heading-top-level::after {
+  .clinical-note-tiptap-editor h1::before,
+  .clinical-note-tiptap-editor h2::before,
+  .clinical-note-tiptap-editor h3::before,
+  .clinical-note-tiptap-editor [data-is-new='true']::after {
     display: none;
   }
 }
