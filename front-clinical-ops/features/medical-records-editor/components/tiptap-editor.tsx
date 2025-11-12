@@ -1,30 +1,35 @@
 'use client';
 
 /**
- * TipTap Clinical Notes Editor Component
+ * Clinical Notes Editor Component
  *
- * PLAN ORIGINAL - Editor simple con headings editables + paragraphs jerárquicos
+ * Editor profesional de historias clínicas con:
+ * - Jerarquía visual clara (H1, H2, H3 + texto)
+ * - Protección de headings originales (no editables)
+ * - Texto siempre editable
+ * - Transformación JSON bidireccional
+ * - UX optimizada para doctores
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { cn } from '@/lib/utils';
 
-import type { JsonValue, EditorMode } from '../types/editor';
+import type { EditorMode } from '../types/editor';
 import {
-  CustomDocument,
-  CustomParagraph,
-  CustomHeading,
-} from '../lib/prosemirror-extensions';
-import { jsonToTiptapDoc } from '../lib/json-to-tiptap';
-import { tiptapToStructuredJson } from '../lib/tiptap-to-json';
+  ClinicalDocument,
+  ClinicalHeading,
+  ClinicalText,
+} from '../lib/tiptap-extensions';
+import { JsonTransformerService } from '../services/json-transformer.service';
+import type { JsonObject } from '../services/json-transformer.service';
 import { FloatingBlockToolbar } from './floating-block-toolbar';
 
 interface TiptapEditorProps {
-  value: JsonValue;
-  onChange?: (value: JsonValue) => void;
+  value: JsonObject;
+  onChange?: (value: JsonObject) => void;
   mode?: EditorMode;
   className?: string;
   placeholder?: string;
@@ -36,92 +41,135 @@ export function TiptapEditor({
   onChange,
   mode = 'edit',
   className,
-  placeholder = 'Agrega contenido clínico...',
+  placeholder = 'Escribe el contenido clínico aquí...',
   readOnly = false,
 }: TiptapEditorProps) {
+  // Instancia del transformer service (singleton)
+  const transformer = useMemo(() => new JsonTransformerService(), []);
+
+  // Configuración del editor
   const editor = useEditor({
     extensions: [
-      CustomDocument,
-      CustomHeading, // Headings con jsonKey attribute (EDITABLES)
+      // Extensions custom
+      ClinicalDocument,
+      ClinicalHeading,
+      ClinicalText,
+
+      // StarterKit (sin document, paragraph, heading)
       StarterKit.configure({
-        document: false, // Use CustomDocument instead
-        paragraph: false, // Use CustomParagraph instead
-        heading: false, // Use CustomHeading instead
+        document: false, // Usamos ClinicalDocument
+        paragraph: false, // Usamos ClinicalText
+        heading: false, // Usamos ClinicalHeading
+
+        // Mantener otras features útiles
+        bold: true,
+        italic: true,
+        strike: false,
+        code: false,
+        codeBlock: false,
+        blockquote: false,
+        horizontalRule: false,
+        hardBreak: true,
+        history: true,
       }),
-      CustomParagraph, // Paragraphs con level attribute (indentación)
+
+      // Placeholder
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === 'heading') {
-            return 'Título de la sección';
+            return 'Título de sección...';
           }
           return placeholder;
         },
       }),
     ],
+
+    // Props del editor
     editorProps: {
       attributes: {
         spellcheck: 'false',
         autocorrect: 'off',
         autocapitalize: 'off',
+        class: 'focus:outline-none',
       },
     },
-    content: value ? jsonToTiptapDoc(value) : undefined,
+
+    // Contenido inicial
+    content: value ? transformer.jsonToTiptap(value) : undefined,
+
+    // Editabilidad
     editable: mode === 'edit' && !readOnly,
-    immediatelyRender: false, // Prevent SSR hydration issues
+
+    // SSR
+    immediatelyRender: false,
+
+    // Callback cuando el contenido cambia
     onUpdate: ({ editor }) => {
       if (mode !== 'edit' || !onChange || readOnly) return;
 
-      const tiptapJson = editor.getJSON();
-      const transformed = tiptapToStructuredJson(tiptapJson);
-      onChange(transformed);
+      try {
+        const tiptapDoc = editor.getJSON();
+        const jsonData = transformer.tiptapToJson(tiptapDoc);
+        onChange(jsonData);
+      } catch (error) {
+        console.error('[ClinicalEditor] Error transforming content:', error);
+      }
     },
   });
 
-  // Update editor content when value changes externally
-  // BUT: Don't update if user is actively editing (has focus)
+  // Sincronizar cambios externos (cuando value cambia desde fuera)
   useEffect(() => {
     if (!editor || !value) return;
 
-    // If editor has focus, user is actively editing - don't update from props
-    // This prevents cursor jumping when typing
+    // No actualizar si el usuario está escribiendo
     if (editor.isFocused) {
       return;
     }
 
     try {
-      const currentContent = editor.getJSON();
-      const newContent = jsonToTiptapDoc(value);
+      const currentDoc = editor.getJSON();
+      const newDoc = transformer.jsonToTiptap(value);
 
-      // Only update if content actually changed (avoid infinite loops)
-      if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-        editor.commands.setContent(newContent, false); // false = don't emit update event
+      // Solo actualizar si el contenido realmente cambió
+      const currentStr = JSON.stringify(currentDoc);
+      const newStr = JSON.stringify(newDoc);
+
+      if (currentStr !== newStr) {
+        editor.commands.setContent(newDoc, { emitUpdate: false });
       }
     } catch (error) {
-      console.error('[TiptapEditor] Error setting content:', error);
-      console.error('[TiptapEditor] Invalid value:', value);
-      // Set empty content on error
-      editor.commands.setContent({
-        type: 'doc',
-        content: [{ type: 'paragraph', content: [] }],
-      }, false);
+      console.error('[ClinicalEditor] Error syncing external changes:', error);
     }
-  }, [editor, value]);
+  }, [editor, value, transformer]);
 
-  // Auto-focus editor on mount
+  // Auto-focus al montar (solo en modo edición)
   useEffect(() => {
-    if (!editor || mode !== 'edit') return;
+    if (!editor || mode !== 'edit' || readOnly) return;
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       editor.commands.focus('start');
-    }, 0);
-  }, [editor, mode]);
+    }, 100);
 
+    return () => clearTimeout(timer);
+  }, [editor, mode, readOnly]);
+
+  // Loading state
   if (!editor) {
-    return null;
+    return (
+      <div
+        className={cn(
+          'clinical-note-tiptap-editor',
+          'flex items-center justify-center',
+          className
+        )}
+      >
+        <div className="text-gray-400 text-sm">Cargando editor...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <div
         className={cn(
           'clinical-note-tiptap-editor',
@@ -131,6 +179,8 @@ export function TiptapEditor({
       >
         <EditorContent editor={editor} className="editor-content" />
       </div>
+
+      {/* Toolbar flotante (solo en modo edición) */}
       {mode === 'edit' && !readOnly && <FloatingBlockToolbar editor={editor} />}
     </div>
   );
