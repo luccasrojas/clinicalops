@@ -30,6 +30,109 @@ class DecimalEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+def extract_field_order_from_json(format_json):
+    """
+    Extrae el orden de los campos del formato del médico.
+    """
+    try:
+        if isinstance(format_json, str):
+            template = json.loads(format_json)
+        else:
+            template = format_json
+
+        if not isinstance(template, dict):
+            return []
+
+        # Si tiene estructura anidada, extraer de ahí
+        if "estructura_historia_clinica" in template:
+            nested = template.get("estructura_historia_clinica", {})
+            if isinstance(nested, dict):
+                return list(nested.keys())
+
+        # Estructura plana
+        return list(template.keys())
+
+    except Exception as e:
+        print(f"Warning: Could not extract field order: {e}")
+        return []
+
+
+def reorder_json_fields(json_str, doctor_id):
+    """
+    Reordena los campos de un JSON string según el formato del médico.
+    Obtiene el formato del médico de DynamoDB para determinar el orden.
+    """
+    try:
+        # Obtener el formato del médico
+        doctors_table = dynamodb.Table('doctors')
+        doctor_response = doctors_table.get_item(Key={'doctorID': doctor_id})
+
+        field_order = []
+        if 'Item' in doctor_response:
+            doctor_data = doctor_response['Item']
+            medical_record_structure = doctor_data.get('medical_record_structure')
+
+            if medical_record_structure:
+                field_order = extract_field_order_from_json(medical_record_structure)
+                print(f"Extracted field order from doctor format: {field_order}")
+
+        # Si no hay orden, retornar sin cambios
+        if not field_order:
+            print("No field order found, keeping original order")
+            return json_str
+
+        # Parsear y reordenar
+        data = json.loads(json_str)
+
+        if not isinstance(data, dict):
+            return json_str
+
+        ordered = {}
+
+        # Verificar si tiene estructura anidada
+        if "estructura_historia_clinica" in data:
+            nested = data["estructura_historia_clinica"]
+            if isinstance(nested, dict):
+                reordered_nested = {}
+
+                # Aplicar orden del formato del médico
+                for field in field_order:
+                    if field in nested:
+                        reordered_nested[field] = nested[field]
+
+                # Agregar campos adicionales
+                for key, value in nested.items():
+                    if key not in reordered_nested:
+                        reordered_nested[key] = value
+
+                # Agregar campos de nivel superior primero
+                for key, value in data.items():
+                    if key != "estructura_historia_clinica":
+                        ordered[key] = value
+
+                # Agregar la estructura reordenada
+                ordered["estructura_historia_clinica"] = reordered_nested
+            else:
+                ordered = data
+        else:
+            # Estructura plana - aplicar orden del médico
+            for field in field_order:
+                if field in data:
+                    ordered[field] = data[field]
+
+            # Agregar campos adicionales
+            for key, value in data.items():
+                if key not in ordered:
+                    ordered[key] = value
+
+        # Convertir de vuelta a JSON string
+        return json.dumps(ordered, ensure_ascii=False)
+
+    except Exception as e:
+        print(f"Warning: Could not reorder JSON fields: {e}")
+        return json_str
+
+
 def _ensure_structured_note(history_id, record):
     """Ensure the record has structuredClinicalNote and structuredClinicalNoteOriginal."""
     structured_note = record.get('structuredClinicalNote')
@@ -99,6 +202,15 @@ def lambda_handler(event, context):
 
         record = response['Item']
         structured_note = _ensure_structured_note(history_id, record)
+
+        # Reordenar campos según el formato del médico
+        doctor_id = record.get('doctorID')
+        if doctor_id and structured_note:
+            try:
+                structured_note = reorder_json_fields(structured_note, doctor_id)
+                print(f"Reordered fields for medical record {history_id}")
+            except Exception as e:
+                print(f"Warning: Could not reorder fields: {e}")
 
         meta = record.get('metaData') or {}
         normalized_meta = _normalize_dynamodb_json(meta)
