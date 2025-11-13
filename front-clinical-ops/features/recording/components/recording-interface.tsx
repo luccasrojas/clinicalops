@@ -79,15 +79,26 @@ export function RecordingInterface({
     if (!historyStatus.data?.history) return
 
     const history = historyStatus.data.history
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     if (history.status === 'completed' && onComplete) {
-      setProcessingHistoryID(null)
-      clearBlobUrl()
-      setDuration({ hours: 0, minutes: 0, seconds: 0 })
-      onComplete(history.historyID)
+      timeoutId = setTimeout(() => {
+        setProcessingHistoryID(null)
+        clearBlobUrl()
+        setDuration({ hours: 0, minutes: 0, seconds: 0 })
+        onComplete(history.historyID)
+      }, 0)
     } else if (history.status === 'failed' && onError) {
-      setProcessingHistoryID(null)
-      onError(history.errorMessage || 'Error al procesar la grabación')
+      timeoutId = setTimeout(() => {
+        setProcessingHistoryID(null)
+        onError(history.errorMessage || 'Error al procesar la grabación')
+      }, 0)
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }, [historyStatus.data, onComplete, onError, clearBlobUrl])
 
@@ -143,9 +154,10 @@ export function RecordingInterface({
 
       // Start polling for status updates
       setProcessingHistoryID(result.history.historyID)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsUploading(false)
-      const errorMessage = error.message || 'Error al procesar la grabación'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error al procesar la grabación'
       if (onError) {
         onError(errorMessage)
       }
@@ -199,9 +211,10 @@ export function RecordingInterface({
 
       // Start polling for status updates
       setProcessingHistoryID(result.history.historyID)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsUploading(false)
-      const errorMessage = error.message || 'Error al subir el archivo'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error al subir el archivo'
       if (onError) {
         onError(errorMessage)
       }

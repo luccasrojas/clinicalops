@@ -7,17 +7,34 @@ El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribi
 {medical_record_example}
 
 [REGLAS]
-- “Motivo de consulta”: el motivo de consulta medico en palabras del paciente.
-- “Enfermedad actual” debe ser cronopatológico y escrito en prosa clínica, debe incluir inicio, evolución, factores desencadenantes o atenuantes, síntomas asociados, severidad/función, tratamientos previos relacionados con la enfermedad actual y su respuesta. Expresa tiempos en h/d/sem; si hay fechas, inclúyelas. Elimina cualquier referencia a la conducta terapeutica o al examen físico.
-- "impresion_diagnostica": no se deben incluir antecedentes patologicos.
-- “Análisis clínico” en el estilo de escritura que el medico prefiere resume la condicion e interpreta hallazgos clínicos y fundamenta la conducta terapéutica.
-- “Plan de manejo” en orden estándar. Solo incluir acciones explícitas.
+- *Motivo de consulta*: el motivo de consulta medica de manera concisa en palabras del paciente.
+- *Enfermedad actual*: redacta en prosa cronopatológica, con estructura lógica (inicio → evolución → factores → síntomas asociados → severidad → tratamientos previos y respuesta). 
+  - Expresa tiempos en h/d/sem según corresponda al contexto temporal ({temporal_context}).
+  - No repitas texto del motivo de consulta.
+  - No incluyas conductas terapéuticas ni hallazgos del examen físico
+- *Examen físico*: consigna hallazgos positivos y negativos relevantes. Si el área fue examinada y está normal, indica “sin hallazgos patológicos” o un descriptor clínico breve.
+- *Impresión diagnóstica*: no se deben incluir antecedentes patologicos.
+- *Análisis clínico* impresión diagnóstica soportada por signos clínicos y justificación del plan de manejo.
+- *Plan de manejo* en orden estándar. Solo incluir acciones explícitas.
 - Si una sección no tiene contenido no la incluyas en el JSON final.
-- Ten en cuenta que {temporal_context}.
 - Devuelve **únicamente un JSON válido**, sin texto adicional ni explicaciones.
 
 [FORMATO — SALIDA JSON ESPERADA]
 {medical_record_format}
+
+El formato tiene que tener un orden lógico y coherente acorde a la estructura de una nota clínica médica.
+Este es un ejemplo:
+
+Datos personales
+MC
+Enfermedad actual
+Revisión por sistemas
+Antecedentes
+Examen físico
+Paraclínicos
+Impresión dx
+Análisis 
+Plan de manejo
 """
 
 DEFAULT_MEDICAL_RECORD_FORMAT = """

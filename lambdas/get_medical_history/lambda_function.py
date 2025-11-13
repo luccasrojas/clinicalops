@@ -11,6 +11,27 @@ table = dynamodb.Table('medical-histories')
 _type_deserializer = TypeDeserializer()
 _dynamodb_type_keys = {'S', 'N', 'M', 'L', 'BOOL', 'NULL', 'SS', 'NS', 'BS'}
 
+# Common section titles (for reference)
+COMMON_SECTION_TITLES = {
+    'datos_personales': 'Datos personales',
+    'motivo_consulta': 'Motivo consulta',
+    'enfermedad_actual': 'Enfermedad actual',
+    'antecedentes_relevantes': 'Antecedentes relevantes',
+    'examen_fisico': 'Examen físico',
+    'paraclinicos_imagenes': 'Paraclínicos e imágenes',
+    'impresion_diagnostica': 'Impresión diagnóstica',
+    'analisis_clinico': 'Análisis clínico',
+    'plan_manejo': 'Plan de manejo',
+    'notas_calidad_datos': 'Notas de calidad de datos'
+}
+
+
+def _generate_title_from_key(key):
+    """Generate a human-readable title from a section key"""
+    if key in COMMON_SECTION_TITLES:
+        return COMMON_SECTION_TITLES[key]
+    return ' '.join(word.capitalize() for word in key.replace('_', ' ').split())
+
 
 def _normalize_dynamodb_json(value):
     if isinstance(value, dict):
@@ -37,7 +58,11 @@ def lambda_handler(event, context):
     Path Parameters:
     - historyID (required): History ID
 
-    Returns complete medical history with full jsonData
+    Returns complete medical history with:
+    - Full jsonData (ordered sections)
+    - Section titles (customizable)
+    - Version information
+    - Metadata
     """
     try:
         # Get historyID from path parameters
@@ -68,9 +93,24 @@ def lambda_handler(event, context):
             }
 
         item = response['Item']
-        item['jsonData'] = _normalize_dynamodb_json(item.get('jsonData', {}))
+        
+        # Normalize DynamoDB JSON types
+        json_data = _normalize_dynamodb_json(item.get('jsonData', {}))
+        item['jsonData'] = json_data
         if 'metaData' in item:
             item['metaData'] = _normalize_dynamodb_json(item['metaData'])
+        
+        # Generate section titles for all sections in jsonData
+        section_titles = item.get('sectionTitles', {})
+        for section_key in json_data.keys():
+            if section_key not in section_titles:
+                section_titles[section_key] = _generate_title_from_key(section_key)
+        
+        item['sectionTitles'] = section_titles
+        
+        # Add version metadata
+        item['versionCount'] = item.get('versionCount', 0)
+        item['updatedAt'] = item.get('updatedAt', item.get('createdAt'))
 
         # Return success response with full data
         return {

@@ -7,6 +7,89 @@ from prompts import SYSTEM_PROMPT, CLINICAL_NOTE_EXAMPLE, DEFAULT_MEDICAL_RECORD
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+def extract_field_order(format_template):
+    """
+    Extrae el orden de los campos del template de formato del médico.
+    Soporta tanto JSON string como dict.
+    """
+    try:
+        if isinstance(format_template, str):
+            # Intentar parsear como JSON
+            template = json.loads(format_template)
+        else:
+            template = format_template
+
+        if not isinstance(template, dict):
+            return []
+
+        # Si tiene estructura anidada, extraer de ahí
+        if "estructura_historia_clinica" in template:
+            nested = template.get("estructura_historia_clinica", {})
+            if isinstance(nested, dict):
+                return list(nested.keys())
+
+        # Estructura plana
+        return list(template.keys())
+
+    except Exception as e:
+        print(f"Warning: Could not extract field order from format: {e}")
+        return []
+
+
+def reorder_medical_record(data, field_order):
+    """
+    Reordena los campos del registro médico según el orden del formato del médico.
+    Maneja tanto estructura plana como anidada (estructura_historia_clinica).
+    Preserva campos adicionales al final si existen.
+
+    Args:
+        data: Diccionario con los datos del registro médico
+        field_order: Lista con el orden esperado de campos
+    """
+    if not isinstance(data, dict) or not field_order:
+        return data
+
+    ordered = {}
+
+    # Verificar si tiene estructura anidada
+    if "estructura_historia_clinica" in data:
+        # Reordenar el contenido anidado
+        nested = data["estructura_historia_clinica"]
+        if isinstance(nested, dict):
+            reordered_nested = {}
+
+            # Aplicar orden del formato del médico
+            for field in field_order:
+                if field in nested:
+                    reordered_nested[field] = nested[field]
+
+            # Agregar campos adicionales que GPT-5 haya generado
+            for key, value in nested.items():
+                if key not in reordered_nested:
+                    reordered_nested[key] = value
+
+            # Agregar campos de nivel superior primero
+            for key, value in data.items():
+                if key != "estructura_historia_clinica":
+                    ordered[key] = value
+
+            # Agregar la estructura reordenada
+            ordered["estructura_historia_clinica"] = reordered_nested
+        else:
+            ordered = data.copy()
+    else:
+        # Estructura plana - aplicar orden del formato del médico
+        for field in field_order:
+            if field in data:
+                ordered[field] = data[field]
+
+        # Agregar campos adicionales que GPT-5 haya generado
+        for key, value in data.items():
+            if key not in ordered:
+                ordered[key] = value
+
+    return ordered
+
 def generate_temporal_context():
     meses = [
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -62,9 +145,17 @@ def generate_medical_record(transcription, medical_record_example, medical_recor
         text={"format": {"type": "json_object"}},
     )
     
-    data = json.loads(completion.output[1].content[0].text, 
+    data = json.loads(completion.output[1].content[0].text,
                       object_pairs_hook=dict)
-    
+
+    # Extraer el orden de campos del formato del médico y reordenar
+    field_order = extract_field_order(medical_record_format)
+    if field_order:
+        print(f"Reordering fields according to doctor's format: {field_order}")
+        data = reorder_medical_record(data, field_order)
+    else:
+        print("Warning: Could not extract field order, keeping GPT-5 output order")
+
     return data
 
 
@@ -90,7 +181,6 @@ def lambda_handler(event, context):
 
         # Get example format - can be 'example_format' or 'medical_record_example'
         medical_record_example = (
-            body.get('example_format') or
             body.get('medical_record_example') or
             CLINICAL_NOTE_EXAMPLE
         )

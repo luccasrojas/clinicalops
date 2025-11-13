@@ -1,14 +1,17 @@
-import { webApi } from '@/lib/api-client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   UpdateMedicalHistoryRequest,
   UpdateMedicalHistoryResponse,
 } from '../types';
+import { invokeLambdaApi } from '@/lib/lambda-api';
 
 export const updateMedicalHistory = (
   data: UpdateMedicalHistoryRequest
 ): Promise<UpdateMedicalHistoryResponse> => {
-  return webApi.put('/medical-histories', data);
+  return invokeLambdaApi<UpdateMedicalHistoryResponse>({
+    functionName: 'update_medical_history',
+    payload: data,
+  });
 };
 
 export const useUpdateMedicalHistory = () => {

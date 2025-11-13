@@ -136,8 +136,8 @@ def lambda_handler(event, context):
             'lastName': family_name,
             'especiality': specialty,  # Keep Spanish spelling as per requirements
             'medicalRegistry': medical_registry,
-            'example_history': json.dumps(structured_history) if isinstance(structured_history, dict) else structured_history,
-            'example_history_raw': example_history_text,
+            'medical_record_structure': json.dumps(structured_history) if isinstance(structured_history, dict) else structured_history,
+            'medical_record_example': example_history_text,
             'createdAt': context.aws_request_id if context else 'local',
             'registrationComplete': True
         }

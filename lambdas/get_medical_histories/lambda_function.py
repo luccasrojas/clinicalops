@@ -131,6 +131,8 @@ def lambda_handler(event, context):
                 'patientID': item.get('patientID'),
                 'recordingURL': item.get('recordingURL'),
                 'createdAt': item.get('createdAt'),
+                'updatedAt': item.get('updatedAt', item.get('createdAt')),
+                'versionCount': item.get('versionCount', 0),
                 'metaData': metadata,
             }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useRegisterStep2 } from '../api/register-step2';
@@ -22,13 +22,17 @@ export function RegisterStep2Form() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<RegisterStep2FormData>({
     resolver: zodResolver(registerStep2Schema),
   });
 
-  const exampleHistory = watch('exampleHistory', '');
+  const exampleHistory = useWatch({
+    control,
+    name: 'exampleHistory',
+    defaultValue: '',
+  });
   const characterCount = exampleHistory?.length || 0;
 
   const onSubmit = async (data: RegisterStep2FormData) => {

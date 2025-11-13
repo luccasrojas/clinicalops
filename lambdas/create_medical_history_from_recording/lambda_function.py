@@ -77,14 +77,16 @@ def process_recording_sync(history_id, doctor_id, recording_url, patient_id=None
             raise Exception('Doctor not found')
 
         doctor_data = doctor_response['Item']
-        example_history = doctor_data.get('example_history', {})
+        medical_record_example = doctor_data.get('medical_record_example', {})
+        medical_record_structure = doctor_data.get('medical_record_structure', {})
 
         # Step 3: Create medical record
         print("Step 3: Generating medical record with AI...")
         create_record_payload = {
             'body': json.dumps({
                 'transcription': transcription,
-                'example_format': example_history
+                'medical_record_example': medical_record_example,
+                'medical_record_format': medical_record_structure
             })
         }
 

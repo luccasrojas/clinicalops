@@ -1,0 +1,11 @@
+runtime: python3.11
+memory_size: 512
+timeout: 30
+handler: lambda_function.lambda_handler
+description: "Update medical record clinical note and create version snapshot"
+environment_variables:
+  AWS_REGION: "us-east-1"
+  DYNAMODB_MEDICAL_HISTORIES_TABLE: "medical_histories"
+  DYNAMODB_VERSIONS_TABLE: "medical_record_versions"
+  DYNAMODB_CONNECTIONS_TABLE: "websocket_connections"
+  WS_API_ENDPOINT: ""  # To be filled after WebSocket API is created

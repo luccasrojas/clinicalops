@@ -1,0 +1,7 @@
+runtime: python3.11
+memory_size: 512
+timeout: 15
+handler: lambda_function.lambda_handler
+description: "Get a structured clinical note for a medical history"
+environment_variables:
+  DYNAMODB_MEDICAL_HISTORIES_TABLE: "medical-histories"
