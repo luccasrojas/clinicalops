@@ -8,6 +8,7 @@ import { Document } from '@tiptap/extension-document';
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { Heading } from '@tiptap/extension-heading';
 import type { EditorView } from '@tiptap/pm/view';
+import type { Editor } from '@tiptap/react';
 
 /**
  * CustomDocument Extension
@@ -26,11 +27,11 @@ export const CustomParagraph = Paragraph.extend({
     return {
       level: {
         default: 1,
-        parseHTML: (element) => {
+        parseHTML: (element: HTMLElement) => {
           const level = element.getAttribute('data-level');
           return level ? parseInt(level, 10) : 1;
         },
-        renderHTML: (attributes) => {
+        renderHTML: (attributes: Record<string, any>) => {
           if (!attributes.level) {
             return {};
           }
@@ -57,11 +58,10 @@ export const CustomParagraph = Paragraph.extend({
 export const CustomHeading = Heading.extend({
   addAttributes() {
     return {
-      ...this.parent?.(),
       jsonKey: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-json-key'),
-        renderHTML: (attributes) => {
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-json-key'),
+        renderHTML: (attributes: Record<string, any>) => {
           return attributes.jsonKey
             ? { 'data-json-key': attributes.jsonKey }
             : {};
@@ -69,8 +69,8 @@ export const CustomHeading = Heading.extend({
       },
       isNew: {
         default: false,
-        parseHTML: (element) => element.getAttribute('data-is-new') === 'true',
-        renderHTML: (attributes) => {
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-is-new') === 'true',
+        renderHTML: (attributes: Record<string, any>) => {
           return attributes.isNew
             ? { 'data-is-new': 'true' }
             : {};
@@ -82,7 +82,7 @@ export const CustomHeading = Heading.extend({
   addKeyboardShortcuts() {
     return {
       // Prevent editing h1 headings only
-      Backspace: ({ editor }) => {
+      Backspace: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, $to, empty } = state.selection;
 
@@ -107,7 +107,7 @@ export const CustomHeading = Heading.extend({
 
         return false;
       },
-      Delete: ({ editor }) => {
+      Delete: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, empty } = state.selection;
 
@@ -139,7 +139,7 @@ export const CustomHeading = Heading.extend({
         return false;
       },
       // Always create paragraphs when pressing Enter in headings
-      Enter: ({ editor }) => {
+      Enter: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from } = state.selection;
 

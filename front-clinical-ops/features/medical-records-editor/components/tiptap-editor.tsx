@@ -61,16 +61,13 @@ export function TiptapEditor({
         paragraph: false, // Usamos ClinicalText
         heading: false, // Usamos ClinicalHeading
 
-        // Mantener otras features útiles
-        bold: true,
-        italic: true,
+        // Desactivar features no necesarias
         strike: false,
         code: false,
         codeBlock: false,
         blockquote: false,
         horizontalRule: false,
-        hardBreak: true,
-        history: true,
+        // bold, italic, hardBreak, history usan configuración por defecto (habilitados)
       }),
 
       // Placeholder

@@ -10,6 +10,7 @@
 
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { TextSelection } from '@tiptap/pm/state';
+import type { Editor } from '@tiptap/react';
 import { canJoinWithPrevious, canJoinWithNext } from '../utils/node-helper.util';
 
 export const ClinicalText = Paragraph.extend({
@@ -20,11 +21,11 @@ export const ClinicalText = Paragraph.extend({
       // Nivel jerárquico (para indentación y transformación JSON)
       level: {
         default: 1,
-        parseHTML: (element) => {
+        parseHTML: (element: HTMLElement) => {
           const level = element.getAttribute('data-level');
           return level ? parseInt(level, 10) : 1;
         },
-        renderHTML: (attributes) => {
+        renderHTML: (attributes: Record<string, any>) => {
           return {
             'data-level': attributes.level,
           };
@@ -40,7 +41,7 @@ export const ClinicalText = Paragraph.extend({
        * - Crea otro paragraph del mismo nivel
        * - Mantiene la jerarquía
        */
-      Enter: ({ editor }) => {
+      Enter: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from } = state.selection;
 
@@ -76,7 +77,7 @@ export const ClinicalText = Paragraph.extend({
        * - Prevenir unión con heading anterior
        * - Permitir unión con otros paragraphs
        */
-      Backspace: ({ editor }) => {
+      Backspace: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, empty } = state.selection;
 
@@ -98,7 +99,7 @@ export const ClinicalText = Paragraph.extend({
        * - Prevenir unión con heading siguiente
        * - Permitir unión con otros paragraphs
        */
-      Delete: ({ editor }) => {
+      Delete: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, empty } = state.selection;
 

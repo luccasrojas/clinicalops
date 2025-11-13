@@ -87,7 +87,7 @@ export class JsonTransformerService {
         }
 
         const level = node.attrs?.level ?? 1;
-        const jsonKey = node.attrs?.jsonKey || unformatKey(this.extractText(node));
+        const jsonKey = node.attrs?.jsonKey || unformatKey(this.extractText(node as TiptapNode));
 
         // Ajustar stack al nivel correcto
         while (stack.length > 1 && stack[stack.length - 1].level >= level) {
@@ -110,7 +110,7 @@ export class JsonTransformerService {
         });
 
       } else if (node.type === 'paragraph') {
-        const text = this.extractText(node);
+        const text = this.extractText(node as TiptapNode);
         if (text.trim()) {
           pendingText.push(text.trim());
         }
@@ -255,10 +255,10 @@ export class JsonTransformerService {
 
         // Solo incluir si no está vacío
         if (Object.keys(cleaned).length > 0) {
-          result[key] = cleaned;
+          result[key] = cleaned as JsonValue;
         }
       } else {
-        result[key] = value;
+        result[key] = value as JsonValue;
       }
     }
 
