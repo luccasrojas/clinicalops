@@ -18,6 +18,7 @@ import { ExportMenu } from '@/features/medical-records-editor/components/export-
 import { VersionHistoryPanel } from '@/features/medical-records-editor/components/version-history-panel';
 import { ReadOnlyBanner } from '@/features/medical-records-editor/components/read-only-banner';
 import type { JsonValue } from '@/features/medical-records-editor/types/editor';
+import type { JsonObject } from '@/features/medical-records-editor/services/json-transformer.service';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 
 type MedicalHistoryViewerProps = {
@@ -38,6 +39,8 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
 
   const history = (historyData as SingleHistoryResponse | undefined)?.history;
   const structuredNote = recordData?.record?.structuredClinicalNote ?? '{}';
+  const structuredNoteOriginal =
+    recordData?.record?.structuredClinicalNoteOriginal ?? null;
 
   // Parse full JSON (includes tipo_historia, especialidad_probable, estructura_historia_clinica)
   const fullNote = useMemo<JsonValue>(() => {
@@ -50,6 +53,23 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
       return {};
     }
   }, [structuredNote]);
+
+  const originalFullNote = useMemo<JsonValue>(() => {
+    if (!structuredNoteOriginal) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(structuredNoteOriginal);
+      return parsed;
+    } catch (error) {
+      console.error(
+        '[MedicalHistoryViewer] Failed to parse structuredClinicalNoteOriginal:',
+        error
+      );
+      return null;
+    }
+  }, [structuredNoteOriginal]);
 
   // Extract ONLY estructura_historia_clinica for editing
   const estructuraHistoriaClinica = useMemo<JsonValue>(() => {
@@ -67,6 +87,18 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
     console.log('[MedicalHistoryViewer] Using fallback (fullNote):', fullNote);
     return fullNote || {};
   }, [fullNote]);
+
+  const originalEstructuraClinica = useMemo<JsonValue>(() => {
+    if (
+      originalFullNote &&
+      typeof originalFullNote === 'object' &&
+      !Array.isArray(originalFullNote) &&
+      'estructura_historia_clinica' in originalFullNote
+    ) {
+      return originalFullNote.estructura_historia_clinica as JsonValue;
+    }
+    return originalFullNote || null;
+  }, [originalFullNote]);
 
   const { value, resetValue, updateValue } = useEditorState(estructuraHistoriaClinica);
 
@@ -156,6 +188,13 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
 
       <TiptapEditor
         value={typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {}}
+        lockedStructure={
+          originalEstructuraClinica &&
+          typeof originalEstructuraClinica === 'object' &&
+          !Array.isArray(originalEstructuraClinica)
+            ? (originalEstructuraClinica as JsonObject)
+            : undefined
+        }
         onChange={handleChange}
         readOnly={readOnly}
       />

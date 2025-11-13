@@ -29,6 +29,7 @@ import { FloatingBlockToolbar } from './floating-block-toolbar';
 
 interface TiptapEditorProps {
   value: JsonObject;
+  lockedStructure?: JsonObject | null;
   onChange?: (value: JsonObject) => void;
   mode?: EditorMode;
   className?: string;
@@ -38,6 +39,7 @@ interface TiptapEditorProps {
 
 export function TiptapEditor({
   value,
+  lockedStructure,
   onChange,
   mode = 'edit',
   className,
@@ -92,7 +94,7 @@ export function TiptapEditor({
     },
 
     // Contenido inicial
-    content: value ? transformer.jsonToTiptap(value) : undefined,
+    content: value ? transformer.jsonToTiptap(value, lockedStructure || undefined) : undefined,
 
     // Editabilidad
     editable: mode === 'edit' && !readOnly,
@@ -125,7 +127,7 @@ export function TiptapEditor({
 
     try {
       const currentDoc = editor.getJSON();
-      const newDoc = transformer.jsonToTiptap(value);
+      const newDoc = transformer.jsonToTiptap(value, lockedStructure || undefined);
 
       // Solo actualizar si el contenido realmente cambió
       const currentStr = JSON.stringify(currentDoc);
@@ -172,7 +174,7 @@ export function TiptapEditor({
     } catch (error) {
       console.error('[ClinicalEditor] Error syncing external changes:', error);
     }
-  }, [editor, value, transformer]);
+  }, [editor, value, lockedStructure, transformer]);
 
   // Auto-focus al montar (solo en modo edición)
   useEffect(() => {
