@@ -139,7 +139,11 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
 
       {readOnly ? <ReadOnlyBanner /> : null}
 
-      <TiptapEditor value={value} onChange={handleChange} readOnly={readOnly} />
+      <TiptapEditor
+        value={value || {}}
+        onChange={handleChange}
+        readOnly={readOnly}
+      />
 
       <Card>
         <CardHeader>
