@@ -135,7 +135,42 @@ export function TiptapEditor({
       const newStr = JSON.stringify(newDoc);
 
       if (currentStr !== newStr) {
+        // Guardar posición actual del scroll y del cursor
+        const editorDom = editor.view.dom;
+        const scrollContainer =
+          editorDom.closest('.clinical-note-tiptap-editor') ||
+          editorDom.parentElement ||
+          window;
+
+        const scrollPosition =
+          scrollContainer === window
+            ? window.scrollY
+            : (scrollContainer as HTMLElement).scrollTop;
+
+        // Guardar posición del cursor
+        const { from, to } = editor.state.selection;
+
+        // Actualizar contenido
         editor.commands.setContent(newDoc, { emitUpdate: false });
+
+        // Restaurar posición del scroll y cursor
+        requestAnimationFrame(() => {
+          if (scrollContainer === window) {
+            window.scrollTo(0, scrollPosition);
+          } else {
+            (scrollContainer as HTMLElement).scrollTop = scrollPosition;
+          }
+
+          // Intentar restaurar posición del cursor si es válida
+          try {
+            const docSize = editor.state.doc.content.size;
+            if (from <= docSize && to <= docSize) {
+              editor.commands.setTextSelection({ from, to });
+            }
+          } catch {
+            // Ignorar errores de restauración de cursor
+          }
+        });
       }
     } catch (error) {
       console.error('[ClinicalEditor] Error syncing external changes:', error);

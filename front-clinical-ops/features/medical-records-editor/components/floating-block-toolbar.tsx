@@ -54,6 +54,9 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
     const { $from } = editor.state.selection;
     const currentLevel = $from.parent.attrs?.level || 1;
 
+    // Guardar posición actual para restaurarla después
+    const { from, to } = editor.state.selection;
+
     if (type === 'paragraph') {
       // Convertir a paragraph manteniendo el nivel
       editor
@@ -61,21 +64,25 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
         .focus()
         .setParagraph()
         .updateAttributes('paragraph', { level: currentLevel })
+        .setTextSelection({ from, to })
         .run();
     } else {
       // Convertir a heading
       const level = type === 'h1' ? 1 : type === 'h2' ? 2 : 3;
 
-      // IMPORTANTE: Marcar como nuevo (isNew = true) para que sea editable
+      // IMPORTANTE: setHeading() solo acepta { level }
+      // Los atributos personalizados se establecen con updateAttributes()
       editor
         .chain()
         .focus()
-        .setHeading({ level })
+        .setHeading({ level }) // Solo level aquí
         .updateAttributes('heading', {
+          // Luego establecer atributos personalizados
           isNew: true, // Marca como editable
           jsonKey: null, // No tiene jsonKey (es nuevo)
           parentPath: '',
         })
+        .setTextSelection({ from, to })
         .run();
     }
   };
@@ -96,7 +103,7 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
         {/* H1 Button */}
         <button
           onClick={() => convertTo('h1')}
-          className="w-10 h-10 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all flex items-center justify-center group"
+          className="w-10 h-10 rounded-md bg-[#E6F9F7] dark:bg-[#00BBA7]/30 text-[#00BBA7] dark:text-[#33D9C6] hover:bg-[#CCF3EF] dark:hover:bg-[#00BBA7]/50 transition-all flex items-center justify-center group"
           title="Convertir a Título Principal (H1) - Editable"
         >
           <Heading1 className="w-5 h-5" />
@@ -105,7 +112,7 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
         {/* H2 Button */}
         <button
           onClick={() => convertTo('h2')}
-          className="w-10 h-10 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all flex items-center justify-center group"
+          className="w-10 h-10 rounded-md bg-[#E6F9F7] dark:bg-[#00BBA7]/30 text-[#00BBA7] dark:text-[#33D9C6] hover:bg-[#CCF3EF] dark:hover:bg-[#00BBA7]/50 transition-all flex items-center justify-center group"
           title="Convertir a Subtítulo (H2) - Editable"
         >
           <Heading2 className="w-5 h-5" />
@@ -114,7 +121,7 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
         {/* H3 Button */}
         <button
           onClick={() => convertTo('h3')}
-          className="w-10 h-10 rounded-md bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-all flex items-center justify-center group"
+          className="w-10 h-10 rounded-md bg-[#E6F9F7] dark:bg-[#00BBA7]/30 text-[#00BBA7] dark:text-[#33D9C6] hover:bg-[#CCF3EF] dark:hover:bg-[#00BBA7]/50 transition-all flex items-center justify-center group"
           title="Convertir a Sub-Subtítulo (H3) - Editable"
         >
           <Heading3 className="w-5 h-5" />
@@ -128,11 +135,6 @@ export function FloatingBlockToolbar({ editor }: FloatingBlockToolbarProps) {
         >
           <Type className="w-5 h-5" />
         </button>
-
-        {/* Help text */}
-        <div className="text-[10px] text-gray-400 dark:text-gray-500 px-1 text-center">
-          ✎ Nuevos headings son editables
-        </div>
       </div>
     </div>
   );

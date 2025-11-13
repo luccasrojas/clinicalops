@@ -39,42 +39,52 @@ export function useAutosave({
     fullNoteRef.current = fullNote;
   }, [fullNote]);
 
+  // Extract save logic to reuse in both debounced and immediate save
+  const executeSave = async (nextValue: JsonValue) => {
+    if (!historyID || !userId) return;
+    if (isEqual(nextValue, lastSavedRef.current)) return;
+
+    setStatus('saving');
+    try {
+      // Only send estructuraClinica - Lambda will merge it correctly
+      await updateMutation.mutateAsync({
+        historyID,
+        estructuraClinica: JSON.stringify(nextValue),
+        userId,
+        changeDescription,
+      });
+      lastSavedRef.current = nextValue;
+
+      // Update fullNoteRef with merged structure
+      const updatedFullNote = isObject(fullNoteRef.current)
+        ? { ...fullNoteRef.current, estructura_historia_clinica: nextValue }
+        : { estructura_historia_clinica: nextValue };
+      fullNoteRef.current = updatedFullNote;
+
+      setStatus('saved');
+      setTimeout(() => setStatus('idle'), 1500);
+    } catch (error) {
+      console.error('Autosave failed', error);
+      setStatus('error');
+    }
+  };
+
+  // Debounced save for automatic saves
   const debouncedSave = useDebouncedCallback(
-    async (nextValue: JsonValue) => {
-      if (!historyID || !userId) return;
-      if (isEqual(nextValue, lastSavedRef.current)) return;
-
-      setStatus('saving');
-      try {
-        // Only send estructuraClinica - Lambda will merge it correctly
-        await updateMutation.mutateAsync({
-          historyID,
-          estructuraClinica: JSON.stringify(nextValue),
-          userId,
-          changeDescription,
-        });
-        lastSavedRef.current = nextValue;
-
-        // Update fullNoteRef with merged structure
-        const updatedFullNote = isObject(fullNoteRef.current)
-          ? { ...fullNoteRef.current, estructura_historia_clinica: nextValue }
-          : { estructura_historia_clinica: nextValue };
-        fullNoteRef.current = updatedFullNote;
-
-        setStatus('saved');
-        setTimeout(() => setStatus('idle'), 1500);
-      } catch (error) {
-        console.error('Autosave failed', error);
-        setStatus('error');
-      }
-    },
-    30000, // Auto-save every 30 seconds
+    executeSave,
+    120000, // Auto-save every 2 minutes
     { leading: false }
   );
+
+  // Immediate save for manual saves (Ctrl+S)
+  const saveNow = (nextValue: JsonValue) => {
+    executeSave(nextValue);
+  };
 
   return {
     saveStatus: status,
     saveDraft: debouncedSave,
+    saveNow,
     isSaving: status === 'saving',
   };
 }

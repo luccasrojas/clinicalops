@@ -11,7 +11,9 @@ import { useMedicalRecord } from '@/features/medical-records-editor/api/get-medi
 import { useAutosave } from '@/features/medical-records-editor/hooks/use-autosave';
 import { useEditorState } from '@/features/medical-records-editor/hooks/use-editor';
 import { useMedicalRecordWebSocket } from '@/features/medical-records-editor/hooks/use-websocket';
+import { useSaveShortcut } from '@/features/medical-records-editor/hooks/use-save-shortcut';
 import { SaveStatusIndicator } from '@/features/medical-records-editor/components/save-status-indicator';
+import { SaveConfirmationDialog } from '@/features/medical-records-editor/components/save-confirmation-dialog';
 import { ExportMenu } from '@/features/medical-records-editor/components/export-menu';
 import { VersionHistoryPanel } from '@/features/medical-records-editor/components/version-history-panel';
 import { ReadOnlyBanner } from '@/features/medical-records-editor/components/read-only-banner';
@@ -72,7 +74,7 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
     resetValue(estructuraHistoriaClinica);
   }, [estructuraHistoriaClinica, resetValue]);
 
-  const { saveStatus, saveDraft } = useAutosave({
+  const { saveStatus, saveDraft, saveNow } = useAutosave({
     historyID,
     userId,
     initialValue: estructuraHistoriaClinica,
@@ -92,6 +94,20 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
     updateValue(nextValue);
     saveDraft(nextValue);
   };
+
+  // Extract readOnly early to use in hooks
+  const readOnly = recordData?.record?.readOnly ?? false;
+
+  // Manual save with Ctrl+S confirmation (immediate, no debounce)
+  const handleManualSave = () => {
+    if (readOnly) return;
+    saveNow(value);
+  };
+
+  const { showDialog, setShowDialog, handleConfirm, handleCancel } = useSaveShortcut({
+    onSave: handleManualSave,
+    enabled: !readOnly,
+  });
 
   if (isLoading || recordLoading) {
     return (
@@ -114,7 +130,6 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
   }
 
   const record = recordData.record;
-  const readOnly = record.readOnly ?? false;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -140,6 +155,13 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
       {readOnly ? <ReadOnlyBanner /> : null}
 
       <TiptapEditor value={value} onChange={handleChange} readOnly={readOnly} />
+
+      <SaveConfirmationDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
 
       <Card>
         <CardHeader>
