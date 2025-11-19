@@ -47,6 +47,7 @@ def lambda_handler(event, context):
         else:
             body = event.get('body', {})
         
+        print(body)
         # Extract and validate required fields
         email = body.get('email')
         code = body.get('code')
