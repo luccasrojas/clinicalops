@@ -13,9 +13,9 @@ El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribi
   - No repitas texto del motivo de consulta.
   - No incluyas conductas terapéuticas ni hallazgos del examen físico
 - *Examen físico*: consigna hallazgos positivos y negativos relevantes. Si el área fue examinada y está normal, indica “sin hallazgos patológicos” o un descriptor clínico breve.
-- *Impresión diagnóstica*: no se deben incluir antecedentes patologicos.
-- *Análisis clínico* impresión diagnóstica soportada por signos clínicos y justificación del plan de manejo.
-- *Plan de manejo* en orden estándar. Solo incluir acciones explícitas.
+- *Impresión diagnóstica*: incluir únicamente el diagnóstico principal de la consulta (o los principales si aplica), excluyendo antecedentes, comorbilidades y diagnósticos no relacionados al motivo de consulta actual.
+- *Análisis clínico*: impresión diagnóstica soportada por signos clínicos y justificación del plan de manejo.
+- *Plan de manejo*: en orden estándar. Solo incluir acciones explícitas.
 - Si una sección no tiene contenido no la incluyas en el JSON final.
 - Devuelve **únicamente un JSON válido**, sin texto adicional ni explicaciones.
 
