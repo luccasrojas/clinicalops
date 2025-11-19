@@ -17,12 +17,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  ### CAMBIO: Necesario para poder comparar commits (git diff)
 
       - name: Detect changed Lambdas
         id: detect
         run: |
-          CHANGED=$(ls -1 lambdas | tr '\n' ' ')
-          echo "Changed lambdas: $CHANGED"
+          # Detectar archivos que cambiaron entre el último commit (HEAD) y el anterior (HEAD^)
+          # grep filtra solo cambios dentro de 'lambdas/'
+          # cut extrae el nombre del directorio (la segunda parte después de lambdas/)
+          # sort -u elimina duplicados
+          
+          CHANGED=$(git diff --name-only HEAD^ HEAD | grep "^lambdas/" | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          
+          echo "📂 Changed lambdas detected: $CHANGED"
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
@@ -32,81 +40,92 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy changed Lambdas
+        # Este paso se salta si $CHANGED está vacío
         if: ${{ steps.detect.outputs.changed != '' }}
         run: |
           set -e
+          # Instalar yq (necesario para leer yaml más abajo)
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod a+x /usr/local/bin/yq
+
           for lambda_dir in ${{ steps.detect.outputs.changed }}; do
-            echo "🚀 Deploying Lambda: $lambda_dir"
-            cd lambdas/$lambda_dir
+            # Verificamos que sea un directorio real (por si se borró la carpeta en el commit)
+            if [ -d "lambdas/$lambda_dir" ]; then
+              echo "🚀 Deploying Lambda: $lambda_dir"
+              cd lambdas/$lambda_dir
 
-            # Crear carpeta de paquete
-            mkdir -p package
+              # Crear carpeta de paquete
+              mkdir -p package
 
-            # Instalar dependencias dentro del contenedor oficial de Lambda
-            if [ -f requirements.txt ]; then
-              echo "📦 Instalando dependencias para $lambda_dir dentro del contenedor Lambda..."
-              docker run --rm -v "$PWD":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
-                -c "pip install -r requirements.txt -t package"
+              # Instalar dependencias dentro del contenedor oficial de Lambda
+              if [ -f requirements.txt ]; then
+                echo "📦 Instalando dependencias para $lambda_dir dentro del contenedor Lambda..."
+                docker run --rm -v "$PWD":/var/task --entrypoint /bin/bash public.ecr.aws/lambda/python:3.11 \
+                  -c "pip install -r requirements.txt -t package"
+              fi
+
+              # Copiar archivos .py
+              cp -r ./*.py ./package/ 2>/dev/null || true
+
+              # Crear el ZIP
+              cd package
+              zip -r ../function.zip . > /dev/null
+              cd ..
+
+              # Leer configuración YAML
+              CONFIG_FILE="lambda_config.yml"
+              if [ -f "$CONFIG_FILE" ]; then
+                RUNTIME=$(yq -r '.runtime // "python3.11"' $CONFIG_FILE)
+                MEMORY=$(yq -r '.memory_size // 256' $CONFIG_FILE)
+                TIMEOUT=$(yq -r '.timeout // 30' $CONFIG_FILE)
+                DESCRIPTION=$(yq -r '.description // "Lambda function '$lambda_dir'"' $CONFIG_FILE)
+                HANDLER=$(yq -r '.handler // "lambda_function.lambda_handler"' $CONFIG_FILE)
+              else
+                echo "⚠️ No config file found for $lambda_dir, using defaults."
+                RUNTIME="python3.11"
+                MEMORY=256
+                TIMEOUT=30
+                DESCRIPTION="Lambda function $lambda_dir"
+                HANDLER="lambda_function.lambda_handler"
+              fi
+
+              ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
+              FUNCTION_NAME=$lambda_dir
+
+              if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
+                echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
+                aws lambda update-function-code \
+                  --function-name $FUNCTION_NAME \
+                  --zip-file fileb://function.zip
+
+                echo "⏳ Waiting for code update to complete..."
+                aws lambda wait function-updated --function-name $FUNCTION_NAME
+
+                aws lambda update-function-configuration \
+                  --function-name $FUNCTION_NAME \
+                  --runtime $RUNTIME \
+                  --memory-size $MEMORY \
+                  --timeout $TIMEOUT \
+                  --description "$DESCRIPTION" \
+                  --handler $HANDLER
+              else
+                echo "🆕 Creating new Lambda: $FUNCTION_NAME"
+                aws lambda create-function \
+                  --function-name $FUNCTION_NAME \
+                  --runtime $RUNTIME \
+                  --role $ROLE_ARN \
+                  --handler $HANDLER \
+                  --memory-size $MEMORY \
+                  --timeout $TIMEOUT \
+                  --description "$DESCRIPTION" \
+                  --zip-file fileb://function.zip
+              fi
+              
+              # Volver a la raíz para el siguiente loop
+              cd ../..
+            else 
+               echo "⚠️ Folder lambdas/$lambda_dir no longer exists (was deleted?), skipping deploy."
             fi
-
-            # Copiar archivos .py (dentro del mismo directorio actual)
-            cp -r ./*.py ./package/ 2>/dev/null || true
-
-            # Crear el ZIP
-            cd package
-            zip -r ../function.zip . > /dev/null
-            cd ..
-
-            # Leer configuración YAML (o usar valores por defecto)
-            CONFIG_FILE="lambda_config.yml"
-            if [ -f "$CONFIG_FILE" ]; then
-              RUNTIME=$(yq -r '.runtime // "python3.11"' $CONFIG_FILE)
-              MEMORY=$(yq -r '.memory_size // 256' $CONFIG_FILE)
-              TIMEOUT=$(yq -r '.timeout // 30' $CONFIG_FILE)
-              DESCRIPTION=$(yq -r '.description // "Lambda function '$lambda_dir'"' $CONFIG_FILE)
-              HANDLER=$(yq -r '.handler // "lambda_function.lambda_handler"' $CONFIG_FILE)
-            else
-              echo "⚠️ No config file found for $lambda_dir, using defaults."
-              RUNTIME="python3.11"
-              MEMORY=256
-              TIMEOUT=30
-              DESCRIPTION="Lambda function $lambda_dir"
-              HANDLER="lambda_function.lambda_handler"
-            fi
-
-            ROLE_ARN="arn:aws:iam::880140151067:role/LambdaExecutionRole"
-            FUNCTION_NAME=$lambda_dir
-
-            if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
-              echo "🔁 Updating existing Lambda: $FUNCTION_NAME"
-              aws lambda update-function-code \
-                --function-name $FUNCTION_NAME \
-                --zip-file fileb://function.zip
-
-              echo "⏳ Waiting for code update to complete..."
-              aws lambda wait function-updated --function-name $FUNCTION_NAME
-
-              aws lambda update-function-configuration \
-                --function-name $FUNCTION_NAME \
-                --runtime $RUNTIME \
-                --memory-size $MEMORY \
-                --timeout $TIMEOUT \
-                --description "$DESCRIPTION" \
-                --handler $HANDLER
-            else
-              echo "🆕 Creating new Lambda: $FUNCTION_NAME"
-              aws lambda create-function \
-                --function-name $FUNCTION_NAME \
-                --runtime $RUNTIME \
-                --role $ROLE_ARN \
-                --handler $HANDLER \
-                --memory-size $MEMORY \
-                --timeout $TIMEOUT \
-                --description "$DESCRIPTION" \
-                --zip-file fileb://function.zip
-            fi
-
-            cd ../..
           done
 
       - name: Clean up removed Lambdas
@@ -114,6 +133,7 @@ jobs:
           echo "🧹 Checking for Lambdas to delete..."
           set -e
 
+          # Aquí mantenemos el ls porque queremos saber qué existe AHORA en disco
           LOCAL_LAMBDAS=$(ls -1 lambdas | tr '\n' ' ')
           AWS_LAMBDAS=$(aws lambda list-functions \
             --query "Functions[?starts_with(FunctionName, '')].FunctionName" \

@@ -50,9 +50,6 @@ def lambda_handler(event, context):
         # Extract and validate required fields
         email = body.get('email')
         code = body.get('code')
-
-        print(f"Received verification request for email: {email}")
-        print(f"Received verification code: {code}")
         
         # Validate required fields
         if not all([email, code]):
