@@ -37,7 +37,7 @@ def lambda_handler(event, context):
 
     Query Parameters:
     - doctorID (required): Doctor ID
-    - patientName (optional): Search by patient name (case-insensitive)
+    - searchKeywords (optional): Search by diagnosis or summary keywords (case-insensitive)
     - startDate (optional): Filter from date (ISO format: YYYY-MM-DD)
     - endDate (optional): Filter to date (ISO format: YYYY-MM-DD)
     - patientID (optional): Filter by specific patient
@@ -56,7 +56,7 @@ def lambda_handler(event, context):
         query_params = event.get('queryStringParameters', {}) or {}
 
         doctor_id = query_params.get('doctorID')
-        patient_name = query_params.get('patientName')
+        search_keywords = query_params.get('searchKeywords')
         start_date = query_params.get('startDate')
         end_date = query_params.get('endDate')
         patient_id = query_params.get('patientID')
@@ -93,11 +93,15 @@ def lambda_handler(event, context):
             query_kwargs['KeyConditionExpression'] = query_kwargs['KeyConditionExpression'] & \
                 Key('createdAt').lte(end_date + 'T23:59:59Z')
 
-        # Add filter expression for patient name or ID
+        # Add filter expression for search keywords or patient ID
         filter_expressions = []
-        if patient_name:
-            # Case-insensitive contains search on patient name
-            filter_expressions.append(Attr('metaData.patientName').contains(patient_name.lower()))
+        if search_keywords:
+            # Case-insensitive contains search on diagnosis or summary
+            keywords_lower = search_keywords.lower()
+            filter_expressions.append(
+                Attr('metaData.diagnosis').contains(keywords_lower) |
+                Attr('metaData.summary').contains(keywords_lower)
+            )
 
         if patient_id:
             filter_expressions.append(Attr('patientID').eq(patient_id))
@@ -136,20 +140,9 @@ def lambda_handler(event, context):
                 'metaData': metadata,
             }
 
-            # Extract key patient info from jsonData if available
+            # Extract key clinical data from jsonData if available
             json_data = _normalize_dynamodb_json(item.get('jsonData', {}))
             if json_data:
-                # Try to extract patient name from various possible locations
-                patient_name_from_json = (
-                    json_data.get('nombre_paciente') or
-                    json_data.get('paciente', {}).get('nombre') or
-                    json_data.get('patient_name') or
-                    json_data.get('datos_paciente', {}).get('nombre')
-                )
-
-                if patient_name_from_json and 'patientName' not in history_data['metaData']:
-                    history_data['metaData']['patientName'] = patient_name_from_json
-
                 # Store a preview of the clinical data
                 history_data['preview'] = {
                     'diagnosis': json_data.get('diagnostico') or json_data.get('diagnosis'),
