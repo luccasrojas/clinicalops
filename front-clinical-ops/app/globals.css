@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: oklch(1 0 0);
@@ -9,7 +9,7 @@
   --popover-foreground: oklch(0.3211 0 0);
   --primary: oklch(0.789 0.154 211.53);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.967 0.0029 264.5419);
+  --secondary: rgb(243, 244, 246);
   --secondary-foreground: oklch(0.4461 0.0263 256.8018);
   --muted: oklch(0.9846 0.0017 247.8389);
   --muted-foreground: oklch(0.551 0.0234 264.3637);
@@ -34,7 +34,7 @@
   --sidebar-border: oklch(0.9276 0.0058 264.5313);
   --sidebar-ring: oklch(0.6231 0.188 259.8145);
   --font-sans: Montserrat, sans-serif;
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
   --font-mono: JetBrains Mono, monospace;
   --radius: 0.375rem;
   --shadow-x: 0;
@@ -45,15 +45,15 @@
   --shadow-color: oklch(0 0 0);
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-sm:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
   --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 2px 4px -1px hsl(0 0% 0% / 0.1);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 4px 6px -1px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0.025em;
   --spacing: 0.25rem;
@@ -93,7 +93,7 @@
   --sidebar-border: oklch(0.3715 0 0);
   --sidebar-ring: oklch(0.6231 0.188 259.8145);
   --font-sans: Montserrat, sans-serif;
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
   --font-mono: JetBrains Mono, monospace;
   --radius: 0.375rem;
   --shadow-x: 0;
@@ -104,15 +104,15 @@
   --shadow-color: oklch(0 0 0);
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-sm:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
   --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 2px 4px -1px hsl(0 0% 0% / 0.1);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 4px 6px -1px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1),
-    0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl:
+    0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 }
 
@@ -192,7 +192,9 @@ body {
   background-color: white;
   padding: 2rem;
   font-family: var(--font-sans);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .clinical-note-tiptap-editor:focus-within {
@@ -236,12 +238,12 @@ body {
 .clinical-note-tiptap-editor h1 {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #00BBA7;
+  color: #00bba7;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 2rem 0 0.75rem 0;
   padding-left: 1rem;
-  border-left: 4px solid #00BBA7;
+  border-left: 4px solid #00bba7;
   cursor: not-allowed;
   user-select: none;
   position: relative;
@@ -251,11 +253,11 @@ body {
 .clinical-note-tiptap-editor h2 {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #00A393;
+  color: #00a393;
   text-transform: capitalize;
   margin: 1.25rem 0 0.5rem 2rem;
   padding-left: 0.75rem;
-  border-left: 3px solid #E6F9F7;
+  border-left: 3px solid #e6f9f7;
   cursor: not-allowed;
   user-select: none;
 }
@@ -263,17 +265,17 @@ body {
 .clinical-note-tiptap-editor h2::before {
   content: '▸';
   margin-right: 0.5rem;
-  color: #00BBA7;
+  color: #00bba7;
 }
 
 /* H3 - Sub-Sub-Sections (Turquoise - Non Editable) */
 .clinical-note-tiptap-editor h3 {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #008B7F;
+  color: #008b7f;
   margin: 1rem 0 0.5rem 4rem;
   padding-left: 0.75rem;
-  border-left: 2px solid #E6F9F7;
+  border-left: 2px solid #e6f9f7;
   cursor: not-allowed;
   user-select: none;
 }
@@ -281,7 +283,7 @@ body {
 .clinical-note-tiptap-editor h3::before {
   content: '◦';
   margin-right: 0.5rem;
-  color: #00BBA7;
+  color: #00bba7;
 }
 
 /* New Headings (User-Created) - Editable */
@@ -324,7 +326,7 @@ body {
 .clinical-note-tiptap-editor p[data-level='2'] {
   margin-left: 3.25rem;
   padding-left: 1rem;
-  border-left: 2px solid #E6F9F7;
+  border-left: 2px solid #e6f9f7;
   background-color: rgba(230, 249, 247, 0.3);
 }
 
@@ -332,7 +334,7 @@ body {
 .clinical-note-tiptap-editor p[data-level='3'] {
   margin-left: 5.25rem;
   padding-left: 1rem;
-  border-left: 2px solid #CCF3EF;
+  border-left: 2px solid #ccf3ef;
   background-color: rgba(204, 243, 239, 0.4);
 }
 
@@ -340,7 +342,7 @@ body {
 .clinical-note-tiptap-editor p[data-level='4'] {
   margin-left: 7rem;
   padding-left: 1rem;
-  border-left: 2px solid #B3EDE7;
+  border-left: 2px solid #b3ede7;
   background-color: rgba(179, 237, 231, 0.5);
 }
 
@@ -402,18 +404,18 @@ body {
 }
 
 .dark .clinical-note-tiptap-editor h1 {
-  color: #33D9C6;
-  border-left-color: #33D9C6;
+  color: #33d9c6;
+  border-left-color: #33d9c6;
 }
 
 .dark .clinical-note-tiptap-editor h2 {
-  color: #1AC9B8;
-  border-left-color: #006B60;
+  color: #1ac9b8;
+  border-left-color: #006b60;
 }
 
 .dark .clinical-note-tiptap-editor h3 {
-  color: #00BBA7;
-  border-left-color: #005D54;
+  color: #00bba7;
+  border-left-color: #005d54;
 }
 
 .dark .clinical-note-tiptap-editor p {
@@ -421,17 +423,17 @@ body {
 }
 
 .dark .clinical-note-tiptap-editor p[data-level='2'] {
-  border-left-color: #006B60;
+  border-left-color: #006b60;
   background-color: rgba(0, 107, 96, 0.15);
 }
 
 .dark .clinical-note-tiptap-editor p[data-level='3'] {
-  border-left-color: #005D54;
+  border-left-color: #005d54;
   background-color: rgba(0, 93, 84, 0.2);
 }
 
 .dark .clinical-note-tiptap-editor p[data-level='4'] {
-  border-left-color: #008B7F;
+  border-left-color: #008b7f;
   background-color: rgba(0, 139, 127, 0.25);
 }
 
@@ -456,4 +458,3 @@ body {
     display: none;
   }
 }
-

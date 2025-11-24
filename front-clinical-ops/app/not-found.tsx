@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import { FileQuestion, Home, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,7 +9,10 @@ export default function NotFound() {
       <div className='max-w-2xl w-full text-center'>
         {/* Logo */}
         <div className='flex justify-center mb-8'>
-          <Link href='/' className='flex items-center gap-2 font-medium text-xl'>
+          <Link
+            href='/'
+            className='flex items-center gap-2 font-medium text-xl'
+          >
             <Image
               src='/LogoClinicalops.png'
               alt='ClinicalOps Logo'
@@ -28,15 +29,16 @@ export default function NotFound() {
           <div className='relative'>
             <div className='absolute inset-0 bg-blue-100 rounded-full blur-2xl opacity-50 animate-pulse' />
             <div className='relative bg-white rounded-full p-8 shadow-xl border border-blue-100'>
-              <FileQuestion className='h-24 w-24 text-blue-600' strokeWidth={1.5} />
+              <FileQuestion
+                className='h-24 w-24 text-blue-600'
+                strokeWidth={1.5}
+              />
             </div>
           </div>
         </div>
 
         {/* Error code */}
-        <h1 className='text-8xl font-bold text-gray-900 mb-4'>
-          404
-        </h1>
+        <h1 className='text-8xl font-bold text-gray-900 mb-4'>404</h1>
 
         {/* Medical themed message */}
         <h2 className='text-3xl font-semibold text-gray-800 mb-4'>
@@ -47,7 +49,8 @@ export default function NotFound() {
           Esta página no está en nuestro historial clínico.
         </p>
         <p className='text-base text-gray-500 mb-8'>
-          Parece que la ruta que buscas ha sido dada de alta o nunca existió en nuestro sistema.
+          Parece que la ruta que buscas ha sido dada de alta o nunca existió en
+          nuestro sistema.
         </p>
 
         {/* Action buttons */}
@@ -86,12 +89,18 @@ export default function NotFound() {
               </Link>
             </li>
             <li>
-              <Link href='/auth/login' className='text-blue-600 hover:underline'>
+              <Link
+                href='/auth/login'
+                className='text-blue-600 hover:underline'
+              >
                 → Iniciar sesión
               </Link>
             </li>
             <li>
-              <Link href='/auth/signup' className='text-blue-600 hover:underline'>
+              <Link
+                href='/auth/signup'
+                className='text-blue-600 hover:underline'
+              >
                 → Registrarse como doctor
               </Link>
             </li>

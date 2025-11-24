@@ -35,7 +35,7 @@ export function MedicalHistoriesDashboard({
 
   const { data, isLoading, error } = useMedicalHistories({
     doctorID,
-    patientName: debouncedSearch || undefined,
+    searchKeywords: debouncedSearch || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     limit: 20,
@@ -86,7 +86,7 @@ export function MedicalHistoriesDashboard({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Buscar por nombre de paciente..."
+              placeholder="Buscar por diagnóstico o palabras clave..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 sm:pl-10 text-sm sm:text-base"

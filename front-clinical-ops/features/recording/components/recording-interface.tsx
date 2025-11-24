@@ -17,6 +17,8 @@ import { useReactMediaRecorder } from 'react-media-recorder'
 import { useCreateHistoryFromRecording } from '../api/create-history-from-recording'
 import { useGeneratePresignedUrl } from '../api/generate-presigned-url'
 import { useHistoryStatus } from '../api/get-history-status'
+import { useGenerateSummary } from '@/features/medical-histories/api/generate-summary'
+import { useUpdateMetadata } from '@/features/medical-histories/api/update-metadata'
 
 type RecordingInterfaceProps = {
   doctorID: string
@@ -39,6 +41,8 @@ export function RecordingInterface({
   const generatePresignedUrl = useGeneratePresignedUrl()
   const createHistory = useCreateHistoryFromRecording()
   const historyStatus = useHistoryStatus(processingHistoryID || '')
+  const generateSummary = useGenerateSummary()
+  const updateMetadata = useUpdateMetadata()
 
   const {
     status,
@@ -81,13 +85,71 @@ export function RecordingInterface({
     const history = historyStatus.data.history
     let timeoutId: ReturnType<typeof setTimeout> | undefined
 
-    if (history.status === 'completed' && onComplete) {
-      timeoutId = setTimeout(() => {
-        setProcessingHistoryID(null)
-        clearBlobUrl()
-        setDuration({ hours: 0, minutes: 0, seconds: 0 })
-        onComplete(history.historyID)
-      }, 0)
+    if (history.status === 'completed') {
+      // Generate summary with AI and update metadata
+      const generateAndUpdate = async () => {
+        try {
+          console.log('[RecordingInterface] Historia completada, generando resumen...')
+
+          // Verify jsonData exists
+          if (!history.jsonData || typeof history.jsonData !== 'object') {
+            console.warn('[RecordingInterface] jsonData no disponible, saltando generación de resumen')
+            if (onComplete) {
+              timeoutId = setTimeout(() => {
+                setProcessingHistoryID(null)
+                clearBlobUrl()
+                setDuration({ hours: 0, minutes: 0, seconds: 0 })
+                onComplete(history.historyID)
+              }, 0)
+            }
+            return
+          }
+
+          // Generate summary with Bedrock
+          const summaryResult = await generateSummary.mutateAsync({
+            jsonData: history.jsonData,
+          })
+
+          console.log('[RecordingInterface] Resumen generado:', summaryResult)
+
+          // Update metadata in DynamoDB
+          await updateMetadata.mutateAsync({
+            historyID: history.historyID,
+            metaData: {
+              diagnosis: summaryResult.diagnosis,
+              summary: summaryResult.summary,
+              createdBy: typeof history.metaData?.createdBy === 'string'
+                ? history.metaData.createdBy
+                : undefined,
+            },
+          })
+
+          console.log('[RecordingInterface] Metadata actualizada en DynamoDB')
+
+          // Complete the flow
+          if (onComplete) {
+            timeoutId = setTimeout(() => {
+              setProcessingHistoryID(null)
+              clearBlobUrl()
+              setDuration({ hours: 0, minutes: 0, seconds: 0 })
+              onComplete(history.historyID)
+            }, 0)
+          }
+        } catch (error) {
+          console.error('[RecordingInterface] Error generando resumen:', error)
+          // Even if summary generation fails, still complete the flow
+          if (onComplete) {
+            timeoutId = setTimeout(() => {
+              setProcessingHistoryID(null)
+              clearBlobUrl()
+              setDuration({ hours: 0, minutes: 0, seconds: 0 })
+              onComplete(history.historyID)
+            }, 0)
+          }
+        }
+      }
+
+      generateAndUpdate()
     } else if (history.status === 'failed' && onError) {
       timeoutId = setTimeout(() => {
         setProcessingHistoryID(null)
@@ -100,7 +162,7 @@ export function RecordingInterface({
         clearTimeout(timeoutId)
       }
     }
-  }, [historyStatus.data, onComplete, onError, clearBlobUrl])
+  }, [historyStatus.data, onComplete, onError, clearBlobUrl, generateSummary, updateMetadata])
 
   const handleStop = () => {
     stopRecording()
