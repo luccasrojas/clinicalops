@@ -18,6 +18,10 @@ def transcribe_audio(audio_url, diarization):
 
     if diarization:
         full_text = ""
+        # Check if utterances exist and are not None
+        if transcript.utterances is None or len(transcript.utterances) == 0:
+            raise RuntimeError("No se detectó audio en la grabación. El archivo puede estar vacío o en silencio.")
+
         for utterance in transcript.utterances:
             speaker = f"Speaker{utterance.speaker}"
             text = utterance.text
@@ -25,6 +29,9 @@ def transcribe_audio(audio_url, diarization):
             full_text += f"{speaker}: {text}\n\n"
     else:
         full_text = transcript.text
+        # Check if text is empty
+        if not full_text or full_text.strip() == "":
+            raise RuntimeError("No se detectó audio en la grabación. El archivo puede estar vacío o en silencio.")
 
     return full_text
 
