@@ -1,3 +1,0 @@
-# clinicians-app
-
-redeploy

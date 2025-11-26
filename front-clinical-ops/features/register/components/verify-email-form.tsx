@@ -35,10 +35,8 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
       await invokeLambdaApi({
         functionName: 'auth_verify_email',
         payload: {
-          body: JSON.stringify({
-            email,
-            code: code.trim(),
-          }),
+          email,
+          code: code.trim(),
         },
       })
       setSuccess(true)

@@ -137,7 +137,7 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Historia Clínica</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-            {record.patientName || history.metaData?.patientName || 'Paciente'}
+            {history.metaData?.diagnosis || 'Sin diagnóstico'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3 items-center">
@@ -154,7 +154,11 @@ export function MedicalHistoryViewer({ historyID }: MedicalHistoryViewerProps) {
 
       {readOnly ? <ReadOnlyBanner /> : null}
 
-      <TiptapEditor value={value} onChange={handleChange} readOnly={readOnly} />
+      <TiptapEditor
+        value={typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {}}
+        onChange={handleChange}
+        readOnly={readOnly}
+      />
 
       <SaveConfirmationDialog
         open={showDialog}

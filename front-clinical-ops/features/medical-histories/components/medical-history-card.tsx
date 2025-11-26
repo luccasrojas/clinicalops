@@ -18,23 +18,17 @@ export function MedicalHistoryCard({
   onEdit,
   onDownload,
 }: MedicalHistoryCardProps) {
-  const patientName = String(
-    history.metaData?.patientName ||
-    history.jsonData?.nombre_paciente ||
-    (history.jsonData?.paciente as { nombre?: string })?.nombre ||
-    'Paciente Desconocido'
-  );
-
   const diagnosis = String(
+    history.metaData?.diagnosis ||
     history.preview?.diagnosis ||
     history.jsonData?.diagnostico ||
     history.jsonData?.diagnosis ||
     'Sin diagnóstico'
   );
 
-  const symptoms = (history.preview?.symptoms ||
-    history.jsonData?.sintomas ||
-    history.jsonData?.symptoms) as string | undefined;
+  const summary = String(
+    history.metaData?.summary || 'Sin resumen disponible'
+  );
 
   const createdDate = history.createdAt
     ? format(new Date(history.createdAt), "d 'de' MMMM, yyyy HH:mm a", {
@@ -47,7 +41,7 @@ export function MedicalHistoryCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="font-semibold text-lg capitalize">{patientName}</h3>
+            <h3 className="font-semibold text-lg">{diagnosis}</h3>
             <p className="text-sm text-muted-foreground mt-1">{createdDate}</p>
           </div>
         </div>
@@ -56,20 +50,11 @@ export function MedicalHistoryCard({
       <CardContent className="pb-3">
         <div className="space-y-2">
           <div>
-            <span className="text-sm font-medium">Diagnóstico:</span>
+            <span className="text-sm font-medium">Resumen:</span>
             <p className="text-sm text-muted-foreground line-clamp-2">
-              {diagnosis}
+              {summary}
             </p>
           </div>
-
-          {symptoms && (
-            <div>
-              <span className="text-sm font-medium">Síntomas:</span>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {Array.isArray(symptoms) ? symptoms.join(', ') : symptoms}
-              </p>
-            </div>
-          )}
         </div>
       </CardContent>
 

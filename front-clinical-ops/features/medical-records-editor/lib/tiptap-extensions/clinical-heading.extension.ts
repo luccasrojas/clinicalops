@@ -13,6 +13,7 @@ import { Heading } from '@tiptap/extension-heading';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import type { Editor } from '@tiptap/react';
 import { isOriginalHeading, canJoinWithNext } from '../utils/node-helper.util';
 
 export const ClinicalHeading = Heading.extend({
@@ -20,16 +21,14 @@ export const ClinicalHeading = Heading.extend({
 
   addAttributes() {
     return {
-      ...this.parent?.(),
-
       // Nivel del heading (1 = H1, 2 = H2, 3 = H3)
       level: {
         default: 1,
-        parseHTML: (element) => {
+        parseHTML: (element: HTMLElement) => {
           const level = element.getAttribute('data-level');
           return level ? parseInt(level, 10) : 1;
         },
-        renderHTML: (attributes) => {
+        renderHTML: (attributes: Record<string, any>) => {
           return {
             'data-level': attributes.level,
           };
@@ -39,8 +38,8 @@ export const ClinicalHeading = Heading.extend({
       // Key JSON original (para transformación inversa)
       jsonKey: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-json-key'),
-        renderHTML: (attributes) => {
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-json-key'),
+        renderHTML: (attributes: Record<string, any>) => {
           return attributes.jsonKey
             ? { 'data-json-key': attributes.jsonKey }
             : {};
@@ -50,8 +49,8 @@ export const ClinicalHeading = Heading.extend({
       // Marca si es un heading nuevo (editable) o original (no editable)
       isNew: {
         default: false,
-        parseHTML: (element) => element.getAttribute('data-is-new') === 'true',
-        renderHTML: (attributes) => {
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-is-new') === 'true',
+        renderHTML: (attributes: Record<string, any>) => {
           return attributes.isNew ? { 'data-is-new': 'true' } : {};
         },
       },
@@ -59,8 +58,8 @@ export const ClinicalHeading = Heading.extend({
       // Path jerárquico (para debugging y navegación)
       parentPath: {
         default: '',
-        parseHTML: (element) => element.getAttribute('data-parent-path') || '',
-        renderHTML: (attributes) => {
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-parent-path') || '',
+        renderHTML: (attributes: Record<string, any>) => {
           return attributes.parentPath
             ? { 'data-parent-path': attributes.parentPath }
             : {};
@@ -77,7 +76,7 @@ export const ClinicalHeading = Heading.extend({
        * - Si es nuevo (isNew = true): permitir
        * - Prevenir unión con nodo anterior si es heading
        */
-      Backspace: ({ editor }) => {
+      Backspace: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, empty } = state.selection;
 
@@ -101,7 +100,7 @@ export const ClinicalHeading = Heading.extend({
        * - Si es nuevo (isNew = true): permitir
        * - Prevenir unión con nodo siguiente si es heading
        */
-      Delete: ({ editor }) => {
+      Delete: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from, empty } = state.selection;
 
@@ -126,7 +125,7 @@ export const ClinicalHeading = Heading.extend({
        * - Crea un paragraph del mismo nivel jerárquico
        * - Posiciona el cursor al inicio del nuevo paragraph
        */
-      Enter: ({ editor }) => {
+      Enter: ({ editor }: { editor: Editor }) => {
         const { state } = editor;
         const { $from } = state.selection;
 
