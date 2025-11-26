@@ -338,7 +338,7 @@ class PerformanceMonitoringService {
     uploadHistory: UploadMetrics[]
     storageHistory: StorageMetrics[]
     syncQueueHistory: SyncQueueMetrics[]
-    summary: ReturnType<typeof this.getPerformanceSummary>
+    summary: ReturnType<PerformanceMonitoringService['getPerformanceSummary']>
   } {
     return {
       uploadHistory: [...this.uploadHistory],

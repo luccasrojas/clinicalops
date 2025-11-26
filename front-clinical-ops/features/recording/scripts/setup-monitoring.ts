@@ -313,7 +313,11 @@ export function getHealthStatus(): {
   const alerts = checkMetricsForAlerts()
   const summary = performanceMonitoringService.getPerformanceSummary()
 
-  const checks = [
+  const checks: {
+    name: string
+    status: 'pass' | 'warn' | 'fail'
+    message: string
+  }[] = [
     {
       name: 'upload_success_rate',
       status: alerts.some(

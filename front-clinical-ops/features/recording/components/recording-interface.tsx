@@ -21,7 +21,8 @@ import { useHistoryStatus } from '../api/get-history-status'
 import { NetworkStatusBadge } from './network-status-badge'
 import { useNetworkStatus } from '../hooks/use-network-status'
 import { useRecordingStorage } from '../hooks/use-recording-storage'
-import { useMediaRecorder } from '../hooks/use-media-recorder'
+import { useEnhancedRecording } from '../hooks/use-enhanced-recording'
+import { RecordingSegments } from './recording-segments'
 import { useSyncManager } from '../hooks/use-sync-manager'
 import { useToast } from '@/lib/toast'
 import { useRouter } from 'next/navigation'
@@ -49,7 +50,8 @@ export function RecordingInterface({
   const createHistory = useCreateHistoryFromRecording()
   const historyStatus = useHistoryStatus(processingHistoryID || '')
   const { isOnline } = useNetworkStatus()
-  const { saveRecording, storageStats, refreshStorageStats } = useRecordingStorage()
+  const { saveRecording, storageStats, refreshStorageStats } =
+    useRecordingStorage()
   const { addToast } = useToast()
   const router = useRouter()
 
@@ -62,7 +64,7 @@ export function RecordingInterface({
     onSyncComplete: async () => {
       // Trigger cleanup after successful sync
       if (typeof window !== 'undefined' && (window as any).__cleanupTrigger) {
-        await (window as any).__cleanupTrigger();
+        await (window as any).__cleanupTrigger()
       }
     },
     onSyncEvent: (event) => {
@@ -107,7 +109,12 @@ export function RecordingInterface({
 
         case 'recording_synced':
           // Individual recording synced - could show subtle notification
-          console.log('Recording synced:', event.recordingId, 'History ID:', event.historyID)
+          console.log(
+            'Recording synced:',
+            event.recordingId,
+            'History ID:',
+            event.historyID,
+          )
           break
 
         case 'recording_failed':
@@ -118,7 +125,7 @@ export function RecordingInterface({
     },
   })
 
-  // Use custom MediaRecorder hook
+  // Use enhanced recording hook with segment tracking
   const {
     status,
     startRecording,
@@ -126,8 +133,8 @@ export function RecordingInterface({
     resumeRecording,
     stopRecording,
     duration: durationSeconds,
-    error: recordingError,
-  } = useMediaRecorder({
+    segments,
+  } = useEnhancedRecording({
     onError: (err) => {
       console.error('Recording error:', err)
       if (onError) {
@@ -285,14 +292,19 @@ export function RecordingInterface({
 
       // Start polling for status updates
       setProcessingHistoryID(result.history.historyID)
-      
+
       // Note: We'll update the recording status to 'synced' in the sync manager later
       // For now, just log that upload was successful
-      console.log('Recording uploaded successfully, historyID:', result.history.historyID)
+      console.log(
+        'Recording uploaded successfully, historyID:',
+        result.history.historyID,
+      )
     } catch (error: unknown) {
       setIsUploading(false)
       const errorMessage =
-        error instanceof Error ? error.message : 'Error al procesar la grabación'
+        error instanceof Error
+          ? error.message
+          : 'Error al procesar la grabación'
       if (onError) {
         onError(errorMessage)
       }
@@ -475,7 +487,7 @@ export function RecordingInterface({
                   ? 'bg-teal-500'
                   : isPaused
                     ? 'bg-yellow-500'
-                    : 'bg-gray-200'
+                    : 'bg-gray-200 dark:bg-gray-700'
               }`}
               animate={
                 isRecording
@@ -485,10 +497,17 @@ export function RecordingInterface({
                         '0 0 0 20px rgba(20, 184, 166, 0)',
                       ],
                     }
-                  : {}
+                  : isPaused
+                    ? {
+                        boxShadow: [
+                          '0 0 0 0 rgba(234, 179, 8, 0.4)',
+                          '0 0 0 20px rgba(234, 179, 8, 0)',
+                        ],
+                      }
+                    : {}
               }
               transition={
-                isRecording
+                isRecording || isPaused
                   ? {
                       duration: 1.5,
                       repeat: Infinity,
@@ -522,9 +541,32 @@ export function RecordingInterface({
               <span className='w-12 sm:w-16 lg:w-24 text-center'>Minutos</span>
               <span className='w-12 sm:w-16 lg:w-24 text-center'>Segundos</span>
             </div>
+
+            {/* PAUSADO text when paused */}
+            {isPaused && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className='text-yellow-600 dark:text-yellow-400 font-semibold text-lg sm:text-xl'
+              >
+                PAUSADO
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Recording segments visualization */}
+      {(isRecording || isPaused || isStopped) && segments.length > 0 && (
+        <section className='w-full px-4'>
+          <RecordingSegments
+            segments={segments}
+            isPaused={isPaused}
+            showSummary={isStopped}
+            totalDuration={durationSeconds}
+          />
+        </section>
+      )}
 
       <footer className='mt-8 sm:mt-12 lg:mt-20 flex w-full flex-col items-center gap-6 sm:gap-8 lg:gap-12'>
         <div className='flex flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6'>
@@ -609,7 +651,8 @@ export function RecordingInterface({
                 </Button>
                 {!isOnline && (
                   <p className='text-xs text-amber-600 dark:text-amber-400 text-center max-w-xs'>
-                    La grabación se ha guardado localmente y se procesará automáticamente cuando se restaure la conexión
+                    La grabación se ha guardado localmente y se procesará
+                    automáticamente cuando se restaure la conexión
                   </p>
                 )}
               </div>

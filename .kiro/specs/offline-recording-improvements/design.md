@@ -6,11 +6,12 @@ Este diseño implementa un sistema robusto de grabación de audio con soporte of
 
 ### Key Design Decisions
 
-1. **Reemplazo de react-media-recorder**: Implementaremos un hook personalizado usando MediaRecorder API directamente para control total sobre pausa/reanudación
-2. **IndexedDB como fuente de verdad local**: Todas las grabaciones se almacenan primero localmente antes de intentar subir
-3. **Service Worker para detección de conectividad**: Monitoreo confiable del estado de red
-4. **Queue-based sync**: Sistema de cola con reintentos y backoff exponencial
-5. **Optimistic UI**: La interfaz responde inmediatamente, sincronización en background
+1. **Uso de react-media-recorder como base**: Utilizaremos `react-media-recorder` (librería probada) y la extenderemos con lógica de segmentos para pause/resume
+2. **Arquitectura de segmentos**: Cada pausa genera un segmento separado que se combina al final usando Web Audio API
+3. **IndexedDB como fuente de verdad local**: Todas las grabaciones se almacenan primero localmente antes de intentar subir
+4. **Validación de audio**: Verificación de blobs antes de guardar para prevenir audio corrupto
+5. **Queue-based sync**: Sistema de cola con reintentos y backoff exponencial
+6. **Optimistic UI**: La interfaz responde inmediatamente, sincronización en background
 
 ## Architecture
 
@@ -22,16 +23,16 @@ graph TD
     A --> C[useRecordingStorage Hook]
     A --> D[useNetworkStatus Hook]
     A --> E[useSyncManager Hook]
-    
+
     B --> F[MediaRecorder API]
     C --> G[IndexedDB Service]
     D --> H[Network Events]
     E --> G
     E --> I[Lambda Upload Service]
-    
+
     G --> J[(IndexedDB: recordings)]
     I --> K[AWS S3 via Lambda]
-    
+
     style A fill:#e1f5ff
     style G fill:#ffe1e1
     style J fill:#ffe1e1
@@ -51,21 +52,21 @@ sequenceDiagram
     U->>R: Start Recording
     R->>M: startRecording()
     M-->>R: Recording...
-    
+
     U->>R: Pause
     R->>M: pause()
     M-->>R: Paused
-    
+
     U->>R: Resume
     R->>M: resume()
     M-->>R: Recording...
-    
+
     U->>R: Stop
     R->>M: stop()
     M-->>R: Blob
     R->>DB: saveRecording(blob, metadata)
     DB-->>R: recordingID
-    
+
     alt Online
         R->>S: queueForUpload(recordingID)
         S->>DB: getRecording(recordingID)
@@ -86,11 +87,12 @@ sequenceDiagram
 
 ## Components and Interfaces
 
-### 1. Custom MediaRecorder Hook (`useMediaRecorder`)
+### 1. Enhanced Recording Hook (`useEnhancedRecording`)
 
-**Purpose**: Reemplaza `react-media-recorder` con implementación nativa que soporta pausa/reanudación correctamente.
+**Purpose**: Extiende `react-media-recorder` con funcionalidad de segmentos para pause/resume y validación de audio.
 
 **Interface**:
+
 ```typescript
 interface UseMediaRecorderReturn {
   status: 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
@@ -112,6 +114,7 @@ interface UseMediaRecorderOptions {
 ```
 
 **Implementation Details**:
+
 - Usa `MediaRecorder` API nativa con `audio/webm;codecs=opus` como formato preferido
 - Acumula chunks en array durante pausas para generar blob único al final
 - Maneja permisos de micrófono con mensajes de error claros
@@ -123,6 +126,7 @@ interface UseMediaRecorderOptions {
 **Purpose**: Abstrae operaciones de IndexedDB para almacenamiento de grabaciones y metadatos.
 
 **Schema**:
+
 ```typescript
 interface RecordingRecord {
   id: string; // UUID v4
@@ -157,13 +161,20 @@ interface StorageStats {
 ```
 
 **API**:
+
 ```typescript
 class RecordingStorageService {
-  async saveRecording(data: Omit<RecordingRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
+  async saveRecording(
+    data: Omit<RecordingRecord, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<string>;
   async getRecording(id: string): Promise<RecordingRecord | null>;
   async getAllRecordings(): Promise<RecordingRecord[]>;
   async getPendingRecordings(): Promise<RecordingRecord[]>;
-  async updateRecordingStatus(id: string, status: RecordingRecord['status'], updates?: Partial<RecordingRecord>): Promise<void>;
+  async updateRecordingStatus(
+    id: string,
+    status: RecordingRecord['status'],
+    updates?: Partial<RecordingRecord>
+  ): Promise<void>;
   async deleteRecording(id: string): Promise<void>;
   async getStorageStats(): Promise<StorageStats>;
   async cleanupSyncedRecordings(olderThanDays: number): Promise<number>;
@@ -172,6 +183,7 @@ class RecordingStorageService {
 ```
 
 **Implementation Details**:
+
 - Database name: `clinicalops-recordings`
 - Object store: `recordings` con índices en `status`, `doctorID`, `createdAt`
 - Usa transacciones para operaciones atómicas
@@ -183,6 +195,7 @@ class RecordingStorageService {
 **Purpose**: Monitorea estado de conectividad de manera confiable.
 
 **Interface**:
+
 ```typescript
 interface UseNetworkStatusReturn {
   isOnline: boolean;
@@ -193,6 +206,7 @@ interface UseNetworkStatusReturn {
 ```
 
 **Implementation Details**:
+
 - Escucha eventos `online`/`offline` del navegador
 - Usa Network Information API cuando disponible
 - Verifica conectividad real haciendo ping a endpoint de health check
@@ -204,6 +218,7 @@ interface UseNetworkStatusReturn {
 **Purpose**: Gestiona sincronización automática y manual de grabaciones pendientes.
 
 **Interface**:
+
 ```typescript
 interface UseSyncManagerReturn {
   isSyncing: boolean;
@@ -229,6 +244,7 @@ interface SyncManagerOptions {
 ```
 
 **Implementation Details**:
+
 - Queue basada en prioridad (más antiguas primero)
 - Backoff exponencial: 1s, 2s, 4s para reintentos
 - Máximo 2 uploads concurrentes para no saturar conexión
@@ -241,6 +257,7 @@ interface SyncManagerOptions {
 **Purpose**: UI para gestionar grabaciones locales, ver estado y tomar acciones.
 
 **Features**:
+
 - Lista de grabaciones con filtros (pending, synced, failed)
 - Reproducción de audio inline
 - Indicadores de tamaño y duración
@@ -249,6 +266,7 @@ interface SyncManagerOptions {
 - Botón de limpieza de grabaciones antiguas
 
 **Component Structure**:
+
 ```typescript
 <RecordingManagementPanel>
   <StorageStats />
@@ -271,6 +289,7 @@ interface SyncManagerOptions {
 **Purpose**: Componente principal mejorado con soporte offline y mejor UX.
 
 **New Features**:
+
 - Indicador de estado de conexión prominente
 - Contador de grabaciones pendientes
 - Notificaciones de sincronización automática
@@ -314,16 +333,19 @@ const STORAGE_KEYS = {
 ### Error Categories
 
 1. **Permission Errors**
+
    - Micrófono no autorizado
    - Mensaje: "Necesitamos acceso al micrófono. Por favor, permite el acceso en la configuración de tu navegador."
    - Acción: Mostrar instrucciones específicas por navegador
 
 2. **Storage Errors**
+
    - Quota exceeded
    - Mensaje: "Almacenamiento lleno. Elimina grabaciones antiguas sincronizadas para liberar espacio."
    - Acción: Abrir panel de gestión con sugerencias de limpieza
 
 3. **Network Errors**
+
    - Upload failed
    - Mensaje: "No se pudo subir la grabación. Se reintentará automáticamente cuando haya conexión."
    - Acción: Marcar como pending, agregar a cola de reintentos
@@ -374,12 +396,14 @@ const ERROR_STRATEGIES: Record<string, ErrorRecoveryStrategy> = {
 ### Unit Tests
 
 1. **useMediaRecorder Hook**
+
    - Test pause/resume mantiene continuidad
    - Test cleanup de streams
    - Test manejo de permisos
    - Mock MediaRecorder API
 
 2. **RecordingStorageService**
+
    - Test CRUD operations
    - Test índices y queries
    - Test cleanup de registros antiguos
@@ -396,11 +420,13 @@ const ERROR_STRATEGIES: Record<string, ErrorRecoveryStrategy> = {
 ### Integration Tests
 
 1. **Recording Flow Completo**
+
    - Grabar → Pausar → Reanudar → Detener → Guardar
    - Verificar blob final es continuo
    - Verificar metadatos correctos en IndexedDB
 
 2. **Offline → Online Flow**
+
    - Grabar offline
    - Verificar almacenamiento local
    - Simular reconexión
@@ -429,14 +455,17 @@ const ERROR_STRATEGIES: Record<string, ErrorRecoveryStrategy> = {
 ### Optimizations
 
 1. **Lazy Loading**
+
    - RecordingManagementPanel se carga solo cuando se accede
    - Audio player se carga on-demand
 
 2. **Chunked Uploads**
+
    - Archivos >10MB se suben en chunks de 5MB
    - Permite reanudar uploads interrumpidos
 
 3. **IndexedDB Indexing**
+
    - Índices en campos frecuentemente consultados
    - Queries optimizadas con cursores
 
@@ -462,11 +491,13 @@ interface PerformanceMetrics {
 ## Security Considerations
 
 1. **Data Privacy**
+
    - Grabaciones nunca se envían a servicios de terceros
    - IndexedDB es origin-specific (no cross-site access)
    - Blobs se limpian de memoria después de uso
 
 2. **Authentication**
+
    - doctorID se valida antes de guardar
    - Tokens de auth se incluyen en uploads
    - Verificación de permisos en Lambda
@@ -479,31 +510,37 @@ interface PerformanceMetrics {
 ## Migration Strategy
 
 ### Phase 1: Implement Core Infrastructure
+
 - Crear useMediaRecorder hook
 - Implementar RecordingStorageService
 - Setup IndexedDB schema
 
 ### Phase 2: Integrate with Existing Component
+
 - Reemplazar react-media-recorder en RecordingInterface
 - Agregar almacenamiento local después de cada grabación
 - Mantener flujo de upload existente
 
 ### Phase 3: Add Offline Support
+
 - Implementar useNetworkStatus
 - Agregar detección de offline
 - Implementar queue de pending uploads
 
 ### Phase 4: Add Sync Manager
+
 - Implementar useSyncManager
 - Agregar sincronización automática
 - Implementar retry logic
 
 ### Phase 5: Add Management UI
+
 - Crear RecordingManagementPanel
 - Agregar link desde dashboard
 - Implementar cleanup automático
 
 ### Phase 6: Polish & Testing
+
 - Agregar notificaciones
 - Mejorar mensajes de error
 - Testing exhaustivo
@@ -512,14 +549,17 @@ interface PerformanceMetrics {
 ## Dependencies
 
 ### New Dependencies
+
 ```json
 {
+  "react-media-recorder": "^1.6.6",
   "idb": "^8.0.0",
   "uuid": "^9.0.1"
 }
 ```
 
 ### Browser APIs Required
+
 - MediaRecorder API (Chrome 47+, Firefox 25+, Safari 14.1+)
 - IndexedDB (Universal support)
 - Network Information API (Optional, progressive enhancement)
@@ -533,3 +573,4 @@ Si hay problemas críticos después del deploy:
 2. **Fallback**: Si flag es false, usar implementación anterior con react-media-recorder
 3. **Data Migration**: Grabaciones en IndexedDB permanecen accesibles, se pueden exportar manualmente
 4. **Monitoring**: Logs de errores en Sentry para identificar issues rápidamente
+

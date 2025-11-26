@@ -30,7 +30,7 @@ export function RecordingManagementPanel({
     onSyncComplete: async () => {
       // Trigger cleanup after successful sync
       if (typeof window !== 'undefined' && (window as any).__cleanupTrigger) {
-        await (window as unknown).__cleanupTrigger()
+        await (window as any).__cleanupTrigger()
       }
     },
   })

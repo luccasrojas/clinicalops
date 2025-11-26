@@ -49,6 +49,9 @@ export class CleanupService {
    * Load last cleanup time from localStorage
    */
   private loadLastCleanupTime(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
       const stored = localStorage.getItem('clinicalops:cleanup:last-run');
       if (stored) {
@@ -63,6 +66,9 @@ export class CleanupService {
    * Save last cleanup time to localStorage
    */
   private saveLastCleanupTime(timestamp: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
       localStorage.setItem('clinicalops:cleanup:last-run', timestamp);
       this.lastCleanup = timestamp;

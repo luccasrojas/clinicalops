@@ -53,7 +53,10 @@ interface UploadTask {
   promise: Promise<void>
 }
 
-const DEFAULT_OPTIONS: Omit<Required<SyncManagerOptions>, 'onSyncEvent'> = {
+const DEFAULT_OPTIONS: Omit<
+  Required<SyncManagerOptions>,
+  'onSyncEvent' | 'onSyncComplete'
+> = {
   autoSync: true,
   maxConcurrent: 2,
   retryAttempts: 3,
