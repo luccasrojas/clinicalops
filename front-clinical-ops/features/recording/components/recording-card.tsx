@@ -264,7 +264,7 @@ export function RecordingCard({
             <div className='flex items-center gap-3 p-3 bg-muted/50 rounded-md'>
               <Button
                 variant='ghost'
-                size='icon-sm'
+                size='icon'
                 onClick={handlePlayPause}
                 className='shrink-0'
               >
