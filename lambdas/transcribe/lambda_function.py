@@ -1,64 +1,16 @@
 import os
 import json
 import assemblyai as aai
-import re
 
 ASSEMBLY_KEY = os.getenv("ASSEMBLY_KEY")
-
-def deduplicate_tags(text):
-    """Remove duplicate PII tags from text."""
-    return re.sub(r'(?:\[[A-Z_]+\]\s*){2,}', lambda m: m.group(0).split()[0] + ' ', text)
-
 
 def transcribe_audio(audio_url, diarization):
     aai.settings.api_key = ASSEMBLY_KEY
 
     if diarization:
-        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, speaker_labels=diarization, language_code="es", speakers_expected=2).set_redact_pii(
-    policies=[
-        aai.PIIRedactionPolicy.person_name,
-        aai.PIIRedactionPolicy.phone_number,
-        aai.PIIRedactionPolicy.email_address,
-        aai.PIIRedactionPolicy.healthcare_number,
-        aai.PIIRedactionPolicy.account_number,
-        aai.PIIRedactionPolicy.drivers_license,
-        aai.PIIRedactionPolicy.passport_number,
-        aai.PIIRedactionPolicy.ip_address,
-        aai.PIIRedactionPolicy.location,
-        aai.PIIRedactionPolicy.username,
-        aai.PIIRedactionPolicy.password,
-        aai.PIIRedactionPolicy.credit_card_number,
-        aai.PIIRedactionPolicy.credit_card_cvv,
-        aai.PIIRedactionPolicy.credit_card_expiration,
-        aai.PIIRedactionPolicy.banking_information,
-        aai.PIIRedactionPolicy.us_social_security_number,
-        aai.PIIRedactionPolicy.date_of_birth,
-    ],
-    substitution=aai.PIISubstitutionPolicy.entity_name,
-)
+        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, speaker_labels=diarization, language_code="es", speakers_expected=2)
     else:
-        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, language_code="es").set_redact_pii(
-    policies=[
-        aai.PIIRedactionPolicy.person_name,
-        aai.PIIRedactionPolicy.phone_number,
-        aai.PIIRedactionPolicy.email_address,
-        aai.PIIRedactionPolicy.healthcare_number,
-        aai.PIIRedactionPolicy.account_number,
-        aai.PIIRedactionPolicy.drivers_license,
-        aai.PIIRedactionPolicy.passport_number,
-        aai.PIIRedactionPolicy.ip_address,
-        aai.PIIRedactionPolicy.location,
-        aai.PIIRedactionPolicy.username,
-        aai.PIIRedactionPolicy.password,
-        aai.PIIRedactionPolicy.credit_card_number,
-        aai.PIIRedactionPolicy.credit_card_cvv,
-        aai.PIIRedactionPolicy.credit_card_expiration,
-        aai.PIIRedactionPolicy.banking_information,
-        aai.PIIRedactionPolicy.us_social_security_number,
-        aai.PIIRedactionPolicy.date_of_birth,
-    ],
-    substitution=aai.PIISubstitutionPolicy.entity_name,
-)
+        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.universal, language_code="es")
 
     transcript = aai.Transcriber(config=config).transcribe(audio_url)
     if transcript.status == "error":
@@ -66,6 +18,10 @@ def transcribe_audio(audio_url, diarization):
 
     if diarization:
         full_text = ""
+        # Check if utterances exist and are not None
+        if transcript.utterances is None or len(transcript.utterances) == 0:
+            raise RuntimeError("No se detectó audio en la grabación. El archivo puede estar vacío o en silencio.")
+
         for utterance in transcript.utterances:
             speaker = f"Speaker{utterance.speaker}"
             text = utterance.text
@@ -73,8 +29,11 @@ def transcribe_audio(audio_url, diarization):
             full_text += f"{speaker}: {text}\n\n"
     else:
         full_text = transcript.text
+        # Check if text is empty
+        if not full_text or full_text.strip() == "":
+            raise RuntimeError("No se detectó audio en la grabación. El archivo puede estar vacío o en silencio.")
 
-    return deduplicate_tags(full_text)
+    return full_text
 
 def lambda_handler(event, context):
     try:
