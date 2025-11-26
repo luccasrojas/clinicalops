@@ -1,6 +1,6 @@
 type Metadata = {
-  patientName?: string;
-  diagnosis?: string;
+  diagnosis: string;
+  summary: string;
   createdBy?: string;
   [key: string]: unknown;
 };
@@ -30,7 +30,7 @@ export type MedicalHistoriesResponse = {
 
 export type MedicalHistoriesFilters = {
   doctorID: string;
-  patientName?: string;
+  searchKeywords?: string;
   startDate?: string;
   endDate?: string;
   patientID?: string;
@@ -52,4 +52,25 @@ export type UpdateMedicalHistoryResponse = {
   history: MedicalHistory;
   versionID: string;
   message: string;
+};
+
+// Summary generation types
+export type GenerateSummaryRequest = {
+  jsonData: Record<string, unknown>;
+  modelId?: string;
+};
+
+export type GenerateSummaryResponse = {
+  diagnosis: string;
+  summary: string;
+};
+
+// Update metadata types
+export type UpdateMetadataRequest = {
+  historyID: string;
+  metaData: {
+    diagnosis: string;
+    summary: string;
+    createdBy?: string;
+  };
 };

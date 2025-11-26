@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import axios from 'axios'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 import {
   CheckCircle,
   Loader2,
@@ -11,12 +12,20 @@ import {
   Square,
   Upload,
   XCircle,
+  FolderOpen,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useReactMediaRecorder } from 'react-media-recorder'
 import { useCreateHistoryFromRecording } from '../api/create-history-from-recording'
 import { useGeneratePresignedUrl } from '../api/generate-presigned-url'
 import { useHistoryStatus } from '../api/get-history-status'
+import { NetworkStatusBadge } from './network-status-badge'
+import { useNetworkStatus } from '../hooks/use-network-status'
+import { useRecordingStorage } from '../hooks/use-recording-storage'
+import { useMediaRecorder } from '../hooks/use-media-recorder'
+import { AudioLevelIndicator } from './audio-level-indicator'
+import { useSyncManager } from '../hooks/use-sync-manager'
+import { useToast } from '@/lib/toast'
+import { useRouter } from 'next/navigation'
 
 type RecordingInterfaceProps = {
   doctorID: string
@@ -29,49 +38,166 @@ export function RecordingInterface({
   onComplete,
   onError,
 }: RecordingInterfaceProps) {
-  const [duration, setDuration] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [processingHistoryID, setProcessingHistoryID] = useState<string | null>(
     null,
   )
+  const [savedRecordingID, setSavedRecordingID] = useState<string | null>(null)
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null)
+  const [silentWarningShown, setSilentWarningShown] = useState(false)
 
   const generatePresignedUrl = useGeneratePresignedUrl()
   const createHistory = useCreateHistoryFromRecording()
   const historyStatus = useHistoryStatus(processingHistoryID || '')
+  const { isOnline } = useNetworkStatus()
+  const { saveRecording, storageStats, refreshStorageStats } =
+    useRecordingStorage()
+  const { addToast } = useToast()
+  const router = useRouter()
 
-  const {
-    status,
-    startRecording,
-    stopRecording,
-    pauseRecording,
-    resumeRecording,
-    mediaBlobUrl,
-    clearBlobUrl,
-  } = useReactMediaRecorder({
-    audio: true,
-    onStop: (blobUrl, blob) => {
-      console.log('Recording stopped', { blobUrl, blob })
+  // Track sync progress indicator
+  const [showSyncProgress, setShowSyncProgress] = useState(false)
+
+  // Setup sync manager with event callbacks
+  const { isSyncing, syncProgress } = useSyncManager({
+    autoSync: true,
+    onSyncComplete: async () => {
+      // Trigger cleanup after successful sync
+      if (typeof window !== 'undefined' && (window as any).__cleanupTrigger) {
+        await (window as any).__cleanupTrigger()
+      }
+    },
+    onSyncEvent: (event) => {
+      switch (event.type) {
+        case 'sync_started':
+          // Sync silently in background
+          setShowSyncProgress(true)
+          console.log('🔄 Background sync started...')
+          break
+
+        case 'sync_completed':
+          // Sync completed silently
+          setShowSyncProgress(false)
+          console.log(`✅ Background sync completed: ${event.totalSynced} recording(s) synced`)
+          break
+
+        case 'sync_failed':
+          // Only log errors, no user notification
+          setShowSyncProgress(false)
+          console.error(`❌ Background sync failed: ${event.totalFailed} recording(s) failed, ${event.totalSynced || 0} synced`)
+          break
+
+        case 'recording_synced':
+          // Individual recording synced
+          console.log(
+            'Recording synced:',
+            event.recordingId,
+            'History ID:',
+            event.historyID,
+          )
+          break
+
+        case 'recording_failed':
+          // Individual recording failed
+          console.error('Recording failed:', event.recordingId, event.error)
+          break
+      }
     },
   })
 
-  // Timer effect
+  // Use native recording hook with audio level monitoring
+  const {
+    status,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    duration: durationSeconds,
+    audioLevel,
+    isAudioDetected,
+    isPauseResumeSupported,
+  } = useMediaRecorder({
+    onError: (err) => {
+      console.error('Recording error:', err)
+      if (onError) {
+        onError(`${err.message}\n\n${err.instructions}`)
+      }
+    },
+  })
+
+  // Convert duration from seconds to hours:minutes:seconds
+  const duration = {
+    hours: Math.floor(durationSeconds / 3600),
+    minutes: Math.floor((durationSeconds % 3600) / 60),
+    seconds: durationSeconds % 60,
+  }
+
+  // Derived state for UI logic
+  const isRecording = status === 'recording'
+  const isPaused = status === 'paused'
+  const isStopped = status === 'stopped' && recordingBlob !== null
+  const isProcessing = !!processingHistoryID
+  const processingStatus = historyStatus.data?.history?.status
+
+  // Debug: Log recording state
+  console.log('[RecordingInterface] Status:', status, '| isRecording:', isRecording, '| isPaused:', isPaused, '| isPauseResumeSupported:', isPauseResumeSupported)
+
+  // Refresh storage stats periodically to keep pending count updated
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (status === 'recording') {
-      interval = setInterval(() => {
-        setDuration((prev) => {
-          const totalSeconds =
-            prev.hours * 3600 + prev.minutes * 60 + prev.seconds + 1
-          return {
-            hours: Math.floor(totalSeconds / 3600),
-            minutes: Math.floor((totalSeconds % 3600) / 60),
-            seconds: totalSeconds % 60,
-          }
-        })
-      }, 1000)
-    }
+    const interval = setInterval(() => {
+      refreshStorageStats()
+    }, 5000) // Refresh every 5 seconds
+
     return () => clearInterval(interval)
+  }, [refreshStorageStats])
+
+  // Monitor audio detection and warn if silent for too long
+  useEffect(() => {
+    if (!isRecording || silentWarningShown) return
+
+    // Wait 5 seconds after recording starts
+    const warningTimer = setTimeout(() => {
+      if (!isAudioDetected && isRecording) {
+        addToast({
+          variant: 'warning',
+          title: '⚠ No se detecta audio',
+          description:
+            'El micrófono no está capturando audio. Verifique que el micrófono esté conectado y que los permisos estén habilitados.',
+          duration: 10000,
+        })
+        setSilentWarningShown(true)
+      }
+    }, 5000)
+
+    return () => clearTimeout(warningTimer)
+  }, [isRecording, isAudioDetected, silentWarningShown, addToast])
+
+  // Reset silent warning when recording stops
+  useEffect(() => {
+    if (status === 'idle' || status === 'stopped') {
+      setSilentWarningShown(false)
+    }
+  }, [status])
+
+  // Warn user before leaving if recording is in progress
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only show warning if actively recording or paused (not stopped)
+      if (status === 'recording' || status === 'paused') {
+        e.preventDefault()
+        // Modern browsers require returnValue to be set
+        e.returnValue = ''
+        // Some browsers show this message, others show a generic message
+        return '¿Estás seguro de que quieres salir? La grabación en progreso se perderá.'
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
   }, [status])
 
   // Monitor processing status
@@ -84,13 +210,14 @@ export function RecordingInterface({
     if (history.status === 'completed' && onComplete) {
       timeoutId = setTimeout(() => {
         setProcessingHistoryID(null)
-        clearBlobUrl()
-        setDuration({ hours: 0, minutes: 0, seconds: 0 })
+        setSavedRecordingID(null)
+        setRecordingBlob(null)
         onComplete(history.historyID)
       }, 0)
     } else if (history.status === 'failed' && onError) {
       timeoutId = setTimeout(() => {
         setProcessingHistoryID(null)
+        setSavedRecordingID(null)
         onError(history.errorMessage || 'Error al procesar la grabación')
       }, 0)
     }
@@ -100,22 +227,54 @@ export function RecordingInterface({
         clearTimeout(timeoutId)
       }
     }
-  }, [historyStatus.data, onComplete, onError, clearBlobUrl])
+  }, [historyStatus.data, onComplete, onError])
 
-  const handleStop = () => {
-    stopRecording()
+  const handleStop = async () => {
+    try {
+      // Stop recording and get the blob
+      const blob = await stopRecording()
+
+      // Calculate total duration in seconds
+      const totalSeconds = durationSeconds
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const fileName = `recording_${timestamp}.webm`
+
+      // Save to IndexedDB
+      const recordingID = await saveRecording({
+        doctorID,
+        blob,
+        fileName,
+        mimeType: blob.type || 'audio/webm',
+        duration: totalSeconds,
+        size: blob.size,
+        status: 'pending_upload',
+        syncAttempts: 0,
+        lastSyncAttempt: null,
+        errorMessage: null,
+        syncedAt: null,
+        historyID: null,
+        metadata: {},
+      })
+
+      setSavedRecordingID(recordingID)
+      setRecordingBlob(blob)
+      console.log('Recording saved to IndexedDB:', recordingID)
+    } catch (error) {
+      console.error('Error saving recording to IndexedDB:', error)
+      if (onError) {
+        onError('Error al guardar la grabación localmente')
+      }
+    }
   }
 
   const handleUploadAndProcess = async () => {
-    if (!mediaBlobUrl) return
+    if (!recordingBlob || !savedRecordingID) return
 
     try {
       setIsUploading(true)
       setUploadProgress(0)
-
-      // Fetch the blob from the URL
-      const response = await fetch(mediaBlobUrl)
-      const blob = await response.blob()
 
       // Generate filename
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -125,13 +284,13 @@ export function RecordingInterface({
       const presignedData = await generatePresignedUrl.mutateAsync({
         doctorID,
         fileName,
-        contentType: blob.type || 'audio/webm',
+        contentType: recordingBlob.type || 'audio/webm',
       })
 
       // Upload to S3 using pre-signed URL
-      await axios.put(presignedData.uploadURL, blob, {
+      await axios.put(presignedData.uploadURL, recordingBlob, {
         headers: {
-          'Content-Type': blob.type || 'audio/webm',
+          'Content-Type': recordingBlob.type || 'audio/webm',
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
@@ -154,10 +313,19 @@ export function RecordingInterface({
 
       // Start polling for status updates
       setProcessingHistoryID(result.history.historyID)
+
+      // Note: We'll update the recording status to 'synced' in the sync manager later
+      // For now, just log that upload was successful
+      console.log(
+        'Recording uploaded successfully, historyID:',
+        result.history.historyID,
+      )
     } catch (error: unknown) {
       setIsUploading(false)
       const errorMessage =
-        error instanceof Error ? error.message : 'Error al procesar la grabación'
+        error instanceof Error
+          ? error.message
+          : 'Error al procesar la grabación'
       if (onError) {
         onError(errorMessage)
       }
@@ -222,12 +390,6 @@ export function RecordingInterface({
     }
   }
 
-  const isRecording = status === 'recording'
-  const isPaused = status === 'paused'
-  const isStopped = status === 'stopped' && mediaBlobUrl
-  const isProcessing = !!processingHistoryID
-  const processingStatus = historyStatus.data?.history?.status
-
   const getStatusMessage = () => {
     if (isUploading) {
       return 'Subiendo grabación...'
@@ -241,7 +403,16 @@ export function RecordingInterface({
       }
     }
     if (isStopped) {
+      if (!isOnline) {
+        return 'Grabación guardada localmente. Sin conexión a internet - la transcripción se realizará automáticamente cuando se restaure la conexión.'
+      }
       return 'Grabación lista. Presione "Transcribir" para procesar.'
+    }
+    if (!isOnline && (isRecording || isPaused)) {
+      return 'Grabando sin conexión. La grabación se guardará localmente y se subirá automáticamente cuando se restaure la conexión.'
+    }
+    if (!isOnline) {
+      return 'Sin conexión a internet. Puede grabar normalmente - las grabaciones se guardarán localmente y se sincronizarán automáticamente cuando se restaure la conexión.'
     }
     return 'Presione "Grabar" para iniciar o "Subir archivo" para cargar una grabación existente.'
   }
@@ -249,12 +420,43 @@ export function RecordingInterface({
   return (
     <div className='flex min-h-[500px] sm:min-h-[600px] lg:min-h-[760px] w-full max-w-2xl flex-col px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16 text-center'>
       <header className='flex w-full mb-12 flex-col items-center gap-4 sm:gap-6'>
-        <h2 className='text-2xl sm:text-3xl font-semibold px-4'>
-          Grabando Nueva Historia Clínica
-        </h2>
+        <div className='flex items-center justify-center gap-3 flex-wrap'>
+          <h2 className='text-2xl sm:text-3xl font-semibold px-4'>
+            Grabando Nueva Historia Clínica
+          </h2>
+          <NetworkStatusBadge />
+        </div>
+        {showSyncProgress && isSyncing && (
+          <div className='flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400'>
+            <Loader2 className='h-4 w-4 animate-spin' />
+            <span>
+              Sincronizando {syncProgress.current} de {syncProgress.total}...
+            </span>
+          </div>
+        )}
+        {storageStats && storageStats.pendingCount > 0 && (
+          <Link href='/dashboard/grabacion/gestionar'>
+            <div className='flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer'>
+              <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold text-xs'>
+                {storageStats.pendingCount}
+              </span>
+              <span>
+                {storageStats.pendingCount === 1
+                  ? 'grabación pendiente de sincronización'
+                  : 'grabaciones pendientes de sincronización'}
+              </span>
+              <FolderOpen className='h-4 w-4' />
+            </div>
+          </Link>
+        )}
         <p className='text-sm sm:text-base leading-relaxed text-muted-foreground px-4'>
           {getStatusMessage()}
         </p>
+        {!isPauseResumeSupported && (isRecording || isPaused) && (
+          <p className='text-xs text-amber-600 dark:text-amber-400 px-4 mt-2'>
+            ⚠ Tu navegador no soporta pausar/reanudar grabaciones. Usa el botón "Detener" cuando termines.
+          </p>
+        )}
       </header>
 
       <section className='flex flex-1 items-center justify-center'>
@@ -305,7 +507,7 @@ export function RecordingInterface({
                   ? 'bg-teal-500'
                   : isPaused
                     ? 'bg-yellow-500'
-                    : 'bg-gray-200'
+                    : 'bg-gray-200 dark:bg-gray-700'
               }`}
               animate={
                 isRecording
@@ -315,10 +517,17 @@ export function RecordingInterface({
                         '0 0 0 20px rgba(20, 184, 166, 0)',
                       ],
                     }
-                  : {}
+                  : isPaused
+                    ? {
+                        boxShadow: [
+                          '0 0 0 0 rgba(234, 179, 8, 0.4)',
+                          '0 0 0 20px rgba(234, 179, 8, 0)',
+                        ],
+                      }
+                    : {}
               }
               transition={
-                isRecording
+                isRecording || isPaused
                   ? {
                       duration: 1.5,
                       repeat: Infinity,
@@ -352,9 +561,32 @@ export function RecordingInterface({
               <span className='w-12 sm:w-16 lg:w-24 text-center'>Minutos</span>
               <span className='w-12 sm:w-16 lg:w-24 text-center'>Segundos</span>
             </div>
+
+            {/* PAUSADO text when paused */}
+            {isPaused && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className='text-yellow-600 dark:text-yellow-400 font-semibold text-lg sm:text-xl'
+              >
+                PAUSADO
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Audio level indicator */}
+      {(isRecording || isPaused) && (
+        <section className='w-full px-4 mt-8'>
+          <AudioLevelIndicator
+            audioLevel={audioLevel}
+            isAudioDetected={isAudioDetected}
+            isRecording={isRecording}
+            isPaused={isPaused}
+          />
+        </section>
+      )}
 
       <footer className='mt-8 sm:mt-12 lg:mt-20 flex w-full flex-col items-center gap-6 sm:gap-8 lg:gap-12'>
         <div className='flex flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6'>
@@ -372,7 +604,8 @@ export function RecordingInterface({
 
           {(isRecording || isPaused) && (
             <>
-              {isRecording && (
+              {/* Only show pause button if browser supports it */}
+              {isRecording && isPauseResumeSupported && (
                 <Button
                   onClick={pauseRecording}
                   variant='outline'
@@ -384,7 +617,7 @@ export function RecordingInterface({
                 </Button>
               )}
 
-              {isPaused && (
+              {isPaused && isPauseResumeSupported && (
                 <Button
                   onClick={resumeRecording}
                   size='lg'
@@ -410,23 +643,40 @@ export function RecordingInterface({
           {isStopped && !isUploading && !isProcessing && (
             <>
               <Button
-                onClick={() => clearBlobUrl()}
+                onClick={() => {
+                  setRecordingBlob(null)
+                  setSavedRecordingID(null)
+                }}
                 variant='outline'
                 size='lg'
                 className='text-sm sm:text-base'
               >
                 Volver a Grabar
               </Button>
-              <Button
-                onClick={handleUploadAndProcess}
-                size='lg'
-                className='bg-teal-500 hover:bg-teal-600 text-sm sm:text-base'
-              >
-                <span className='hidden sm:inline'>
-                  Transcribir a Historia Clínica
-                </span>
-                <span className='sm:hidden'>Transcribir</span>
-              </Button>
+              <div className='flex flex-col items-center gap-2'>
+                <Button
+                  onClick={handleUploadAndProcess}
+                  size='lg'
+                  className='bg-teal-500 hover:bg-teal-600 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed'
+                  disabled={!isOnline}
+                  title={
+                    !isOnline
+                      ? 'Sin conexión a internet. La grabación se sincronizará automáticamente cuando se restaure la conexión.'
+                      : 'Transcribir grabación a historia clínica'
+                  }
+                >
+                  <span className='hidden sm:inline'>
+                    Transcribir a Historia Clínica
+                  </span>
+                  <span className='sm:hidden'>Transcribir</span>
+                </Button>
+                {!isOnline && (
+                  <p className='text-xs text-amber-600 dark:text-amber-400 text-center max-w-xs'>
+                    La grabación se ha guardado localmente y se procesará
+                    automáticamente cuando se restaure la conexión
+                  </p>
+                )}
+              </div>
             </>
           )}
         </div>

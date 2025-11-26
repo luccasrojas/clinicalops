@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { RecordingInterface } from '@/features/recording/components/recording-interface'
+import { RecordingInterfaceWrapper } from '@/features/recording/components/recording-interface-wrapper'
 
 export default function RecordingPage() {
   const router = useRouter()
@@ -28,7 +28,7 @@ export default function RecordingPage() {
 
   return (
     <div className='flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16'>
-      <RecordingInterface
+      <RecordingInterfaceWrapper
         doctorID={doctorID}
         onComplete={handleComplete}
         onError={handleError}

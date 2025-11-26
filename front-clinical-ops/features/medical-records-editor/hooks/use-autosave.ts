@@ -16,6 +16,43 @@ type UseAutosaveOptions = {
   changeDescription?: string;
 };
 
+const AUTOSAVE_INTERVAL_MS = 30000;
+const STORAGE_KEY_PREFIX = 'clinicalops-history-autosave';
+
+const getStorageKey = (historyID: string) =>
+  `${STORAGE_KEY_PREFIX}:${historyID}`;
+
+const persistSnapshot = (historyID: string, value: JsonValue) => {
+  if (typeof window === 'undefined' || !historyID) return;
+  try {
+    window.localStorage.setItem(
+      getStorageKey(historyID),
+      JSON.stringify(value ?? null)
+    );
+  } catch (error) {
+    console.warn('[Autosave] Failed to persist snapshot', error);
+  }
+};
+
+const readSnapshot = (historyID: string): JsonValue | null => {
+  if (typeof window === 'undefined' || !historyID) return null;
+  try {
+    const stored = window.localStorage.getItem(getStorageKey(historyID));
+    return stored ? (JSON.parse(stored) as JsonValue) : null;
+  } catch (error) {
+    console.warn('[Autosave] Failed to read snapshot', error);
+    return null;
+  }
+};
+
+const hasDifferencesFromSnapshot = (historyID: string, value: JsonValue) => {
+  const snapshot = readSnapshot(historyID);
+  if (snapshot === null) {
+    return true;
+  }
+  return !isEqual(snapshot, value);
+};
+
 const isObject = (value: JsonValue): value is Record<string, JsonValue> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -33,7 +70,10 @@ export function useAutosave({
 
   useEffect(() => {
     lastSavedRef.current = initialValue;
-  }, [initialValue]);
+    if (historyID) {
+      persistSnapshot(historyID, initialValue);
+    }
+  }, [historyID, initialValue]);
 
   useEffect(() => {
     fullNoteRef.current = fullNote;
@@ -43,6 +83,7 @@ export function useAutosave({
   const executeSave = async (nextValue: JsonValue) => {
     if (!historyID || !userId) return;
     if (isEqual(nextValue, lastSavedRef.current)) return;
+    if (!hasDifferencesFromSnapshot(historyID, nextValue)) return;
 
     setStatus('saving');
     try {
@@ -54,6 +95,7 @@ export function useAutosave({
         changeDescription,
       });
       lastSavedRef.current = nextValue;
+      persistSnapshot(historyID, nextValue);
 
       // Update fullNoteRef with merged structure
       const updatedFullNote = isObject(fullNoteRef.current)
@@ -72,7 +114,7 @@ export function useAutosave({
   // Debounced save for automatic saves
   const debouncedSave = useDebouncedCallback(
     executeSave,
-    120000, // Auto-save every 2 minutes
+    AUTOSAVE_INTERVAL_MS,
     { leading: false }
   );
 

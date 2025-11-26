@@ -4,6 +4,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useRegisterStep2 } from '../api/register-step2';
+import { useLogin } from '@/features/auth/api/login';
+import { useAuth } from '@/features/auth/hooks/use-auth';
 import { useRegisterStore } from '../stores/register-store';
 import { registerStep2Schema, RegisterStep2FormData } from '../types';
 import { Button } from '@/components/ui/button';
@@ -17,6 +19,8 @@ export function RegisterStep2Form() {
   const doctorID = useRegisterStore((state) => state.doctorID);
   const reset = useRegisterStore((state) => state.reset);
   const registerStep2Mutation = useRegisterStep2();
+  const loginMutation = useLogin();
+  const { login: authLogin } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -53,11 +57,22 @@ export function RegisterStep2Form() {
         exampleHistory: data.exampleHistory,
       });
 
+      const loginResponse = await loginMutation.mutateAsync({
+        email: step1Data.email,
+        password: step1Data.password,
+      });
+
+      authLogin(loginResponse.user, {
+        accessToken: loginResponse.accessToken,
+        idToken: loginResponse.idToken,
+        refreshToken: loginResponse.refreshToken,
+      });
+
       // Reset register state
       reset();
 
-      // Redirect to login
-      router.push('/auth/login?registered=true');
+      // Redirect to dashboard directly after login
+      router.push('/dashboard');
     } catch (err) {
       setError(
         err instanceof Error
