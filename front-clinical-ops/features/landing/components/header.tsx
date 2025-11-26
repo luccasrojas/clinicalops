@@ -1,113 +1,102 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
+import { useState, useEffect } from 'react'
+import { Menu, X, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Menu, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
-import { paths } from '@/config/paths'
-
-const navItems = [
-  { href: paths.sections.benefits, label: 'Beneficios' },
-  { href: paths.sections.howItWorks, label: 'Funcionamiento' },
-  { href: paths.sections.testimonials, label: 'Testimonios' },
-]
+import { cn } from '@/lib/utils'
+import { NAV_LINKS } from '../constants/landing-data'
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const handleNavClick = () => {
+    setIsMobileMenuOpen(false)
+  }
 
   return (
-    <header className='sticky top-0 z-50 w-full bg-background/80 backdrop-blur-sm border-b'>
-      <div className='px-4 md:px-10 lg:px-20 mx-auto max-w-7xl'>
-        <div className='flex items-center justify-between h-16'>
-          <Link
-            href={paths.home.getHref()}
-            className='flex items-center gap-2 text-foreground'
-          >
-            <Image
-              src='/LogoClinicalops.png'
-              alt='ClinicalOps Logo'
-              width={32}
-              height={32}
-              className='size-8'
+    <nav
+      className={cn(
+        'fixed w-full z-50 transition-all duration-500 border-b',
+        isScrolled
+          ? 'bg-white/90 backdrop-blur-xl border-slate-100 py-4'
+          : 'bg-transparent border-transparent py-6',
+      )}
+      role='navigation'
+      aria-label='Main navigation'
+    >
+      <div className='max-w-7xl mx-auto px-6 lg:px-8 flex justify-between items-center'>
+        {/* Logo */}
+        <div className='flex items-center gap-3 group cursor-default'>
+          <div className='w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center shadow-md ring-1 ring-slate-900/5 transition-transform group-hover:scale-105 duration-300'>
+            <Activity
+              className='text-white w-5 h-5 stroke-[2.5]'
+              aria-hidden='true'
             />
-            <h2 className='text-lg font-bold leading-tight'>ClinicalOps</h2>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className='hidden md:flex flex-1 justify-center items-center gap-9'>
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className='text-sm font-medium leading-normal hover:text-primary transition-colors'
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-
-          {/* Desktop Actions */}
-          <div className='hidden md:flex gap-2'>
-            <Button variant='ghost' size='default' asChild>
-              <Link href={paths.auth.login.getHref()}>Iniciar Sesión</Link>
-            </Button>
-            <Button size='default' asChild>
-              <Link href={paths.auth.signup.getHref()}>Registrarse Gratis</Link>
-            </Button>
           </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            className='md:hidden p-2'
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label='Toggle mobile menu'
-          >
-            {mobileMenuOpen ? (
-              <X className='size-6' />
-            ) : (
-              <Menu className='size-6' />
-            )}
-          </button>
+          <span className='font-bold text-xl tracking-tight text-slate-900'>
+            ClinicalOps<span className='text-[#7C3AED]'>.AI</span>
+          </span>
         </div>
+
+        {/* Desktop Navigation */}
+        <div className='hidden md:flex items-center gap-10'>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className='text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors tracking-tight'
+            >
+              {link.label}
+            </a>
+          ))}
+          <Button
+            variant='primary'
+            className='py-2.5 px-5 text-xs uppercase tracking-wider font-bold shadow-none hover:shadow-md'
+          >
+            Prueba ClinicalNotes
+          </Button>
+        </div>
+
+        {/* Mobile Menu Button */}
+        <button
+          className='md:hidden text-slate-900'
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
+        >
+          {isMobileMenuOpen ? (
+            <X strokeWidth={1.5} aria-hidden='true' />
+          ) : (
+            <Menu strokeWidth={1.5} aria-hidden='true' />
+          )}
+        </button>
       </div>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className='md:hidden border-t bg-background'
-          >
-            <nav className='flex flex-col gap-4 p-4'>
-              {navItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className='text-sm font-medium leading-normal hover:text-primary transition-colors'
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </a>
-              ))}
-              <div className='flex flex-col gap-2 pt-4 border-t'>
-                <Button variant='ghost' size='default' asChild>
-                  <Link href={paths.auth.login.getHref()}>Iniciar Sesión</Link>
-                </Button>
-                <Button size='default' asChild>
-                  <Link href={paths.auth.signup.getHref()}>
-                    Registrarse Gratis
-                  </Link>
-                </Button>
-              </div>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
+      {isMobileMenuOpen && (
+        <div className='md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl shadow-xl border-t border-slate-100 py-8 px-6 flex flex-col gap-6 animate-in slide-in-from-top-5'>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className='text-slate-900 font-semibold text-lg'
+              onClick={handleNavClick}
+            >
+              {link.label}
+            </a>
+          ))}
+          <Button variant='gradient' className='w-full justify-center mt-2'>
+            Prueba ClinicalNotes
+          </Button>
+        </div>
+      )}
+    </nav>
   )
 }
