@@ -134,6 +134,11 @@ export default function DashboardLayout({
       icon: FileText,
     },
     {
+      name: 'Grabaciones',
+      href: '/dashboard/grabacion/gestionar',
+      icon: Mic,
+    },
+    {
       name: 'Pacientes',
       href: '/dashboard/pacientes',
       icon: Users,

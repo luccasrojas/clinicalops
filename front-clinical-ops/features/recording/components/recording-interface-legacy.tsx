@@ -3,174 +3,74 @@
 import { Button } from '@/components/ui/button'
 import axios from 'axios'
 import { motion } from 'framer-motion'
-import Link from 'next/link'
 import {
   CheckCircle,
   Loader2,
   Mic,
-  Play,
   Square,
   Upload,
   XCircle,
-  FolderOpen,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useCreateHistoryFromRecording } from '../api/create-history-from-recording'
 import { useGeneratePresignedUrl } from '../api/generate-presigned-url'
 import { useHistoryStatus } from '../api/get-history-status'
-import { NetworkStatusBadge } from './network-status-badge'
-import { useNetworkStatus } from '../hooks/use-network-status'
-import { useRecordingStorage } from '../hooks/use-recording-storage'
-import { useMediaRecorder } from '../hooks/use-media-recorder'
-import { useSyncManager } from '../hooks/use-sync-manager'
-import { useToast } from '@/lib/toast'
-import { useRouter } from 'next/navigation'
 
-type RecordingInterfaceProps = {
+type RecordingInterfaceLegacyProps = {
   doctorID: string
   onComplete?: (historyID: string) => void
   onError?: (error: string) => void
 }
 
-export function RecordingInterface({
+/**
+ * Legacy recording interface without offline support
+ * Used as fallback when ENABLE_OFFLINE_RECORDING feature flag is disabled
+ */
+export function RecordingInterfaceLegacy({
   doctorID,
   onComplete,
   onError,
-}: RecordingInterfaceProps) {
+}: RecordingInterfaceLegacyProps) {
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [processingHistoryID, setProcessingHistoryID] = useState<string | null>(
     null,
   )
-  const [savedRecordingID, setSavedRecordingID] = useState<string | null>(null)
-  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null)
+  const [duration, setDuration] = useState({ hours: 0, minutes: 0, seconds: 0 })
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const startTimeRef = useRef<number>(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const generatePresignedUrl = useGeneratePresignedUrl()
   const createHistory = useCreateHistoryFromRecording()
   const historyStatus = useHistoryStatus(processingHistoryID || '')
-  const { isOnline } = useNetworkStatus()
-  const { saveRecording, storageStats, refreshStorageStats } = useRecordingStorage()
-  const { addToast } = useToast()
-  const router = useRouter()
 
-  // Track sync progress indicator
-  const [showSyncProgress, setShowSyncProgress] = useState(false)
-
-  // Setup sync manager with event callbacks
-  const { isSyncing, syncProgress } = useSyncManager({
-    autoSync: true,
-    onSyncComplete: async () => {
-      // Trigger cleanup after successful sync
-      if (typeof window !== 'undefined' && (window as any).__cleanupTrigger) {
-        await (window as any).__cleanupTrigger();
-      }
-    },
-    onSyncEvent: (event) => {
-      switch (event.type) {
-        case 'sync_started':
-          setShowSyncProgress(true)
-          addToast({
-            variant: 'info',
-            title: 'Sincronizando grabaciones',
-            description: 'Subiendo grabaciones pendientes al servidor...',
-            duration: 3000,
-          })
-          break
-
-        case 'sync_completed':
-          setShowSyncProgress(false)
-          addToast({
-            variant: 'success',
-            title: '¡Sincronización completada!',
-            description: `${event.totalSynced} ${event.totalSynced === 1 ? 'grabación sincronizada' : 'grabaciones sincronizadas'} exitosamente.`,
-            duration: 5000,
-            action: {
-              label: 'Ver historias',
-              onClick: () => router.push('/dashboard/historias'),
-            },
-          })
-          break
-
-        case 'sync_failed':
-          setShowSyncProgress(false)
-          addToast({
-            variant: 'error',
-            title: 'Error en sincronización',
-            description: `${event.totalFailed} ${event.totalFailed === 1 ? 'grabación falló' : 'grabaciones fallaron'}. ${event.totalSynced || 0} sincronizadas exitosamente.`,
-            duration: 7000,
-            action: {
-              label: 'Ver detalles',
-              onClick: () => router.push('/dashboard/grabacion/gestionar'),
-            },
-          })
-          break
-
-        case 'recording_synced':
-          // Individual recording synced - could show subtle notification
-          console.log('Recording synced:', event.recordingId, 'History ID:', event.historyID)
-          break
-
-        case 'recording_failed':
-          // Individual recording failed
-          console.error('Recording failed:', event.recordingId, event.error)
-          break
-      }
-    },
-  })
-
-  // Use custom MediaRecorder hook
-  const {
-    status,
-    startRecording,
-    pauseRecording,
-    resumeRecording,
-    stopRecording,
-    duration: durationSeconds,
-    error: recordingError,
-  } = useMediaRecorder({
-    onError: (err) => {
-      console.error('Recording error:', err)
-      if (onError) {
-        onError(`${err.message}\n\n${err.instructions}`)
-      }
-    },
-  })
-
-  // Convert duration from seconds to hours:minutes:seconds
-  const duration = {
-    hours: Math.floor(durationSeconds / 3600),
-    minutes: Math.floor((durationSeconds % 3600) / 60),
-    seconds: durationSeconds % 60,
-  }
-
-  // Refresh storage stats periodically to keep pending count updated
+  // Update timer
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshStorageStats()
-    }, 5000) // Refresh every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [refreshStorageStats])
-
-  // Warn user before leaving if recording is in progress
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Only show warning if actively recording or paused (not stopped)
-      if (status === 'recording' || status === 'paused') {
-        e.preventDefault()
-        // Modern browsers require returnValue to be set
-        e.returnValue = ''
-        // Some browsers show this message, others show a generic message
-        return '¿Estás seguro de que quieres salir? La grabación en progreso se perderá.'
-      }
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        setDuration({
+          hours: Math.floor(elapsed / 3600),
+          minutes: Math.floor((elapsed % 3600) / 60),
+          seconds: elapsed % 60,
+        })
+      }, 1000)
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
     }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
     }
-  }, [status])
+  }, [isRecording])
 
   // Monitor processing status
   useEffect(() => {
@@ -182,14 +82,12 @@ export function RecordingInterface({
     if (history.status === 'completed' && onComplete) {
       timeoutId = setTimeout(() => {
         setProcessingHistoryID(null)
-        setSavedRecordingID(null)
         setRecordingBlob(null)
         onComplete(history.historyID)
       }, 0)
     } else if (history.status === 'failed' && onError) {
       timeoutId = setTimeout(() => {
         setProcessingHistoryID(null)
-        setSavedRecordingID(null)
         onError(history.errorMessage || 'Error al procesar la grabación')
       }, 0)
     }
@@ -201,54 +99,51 @@ export function RecordingInterface({
     }
   }, [historyStatus.data, onComplete, onError])
 
-  const handleStop = async () => {
+  const startRecording = async () => {
     try {
-      // Stop recording and get the blob
-      const blob = await stopRecording()
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
 
-      // Calculate total duration in seconds
-      const totalSeconds = durationSeconds
+      mediaRecorderRef.current = mediaRecorder
+      chunksRef.current = []
 
-      // Generate filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const fileName = `recording_${timestamp}.webm`
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data)
+        }
+      }
 
-      // Save to IndexedDB
-      const recordingID = await saveRecording({
-        doctorID,
-        blob,
-        fileName,
-        mimeType: blob.type || 'audio/webm',
-        duration: totalSeconds,
-        size: blob.size,
-        status: 'pending_upload',
-        syncAttempts: 0,
-        lastSyncAttempt: null,
-        errorMessage: null,
-        syncedAt: null,
-        historyID: null,
-        metadata: {},
-      })
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setRecordingBlob(blob)
+        stream.getTracks().forEach((track) => track.stop())
+      }
 
-      setSavedRecordingID(recordingID)
-      setRecordingBlob(blob)
-      console.log('Recording saved to IndexedDB:', recordingID)
+      mediaRecorder.start()
+      startTimeRef.current = Date.now()
+      setIsRecording(true)
     } catch (error) {
-      console.error('Error saving recording to IndexedDB:', error)
+      console.error('Error starting recording:', error)
       if (onError) {
-        onError('Error al guardar la grabación localmente')
+        onError('No se pudo acceder al micrófono')
       }
     }
   }
 
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+    }
+  }
+
   const handleUploadAndProcess = async () => {
-    if (!recordingBlob || !savedRecordingID) return
+    if (!recordingBlob) return
 
     try {
       setIsUploading(true)
       setUploadProgress(0)
 
-      // Generate filename
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const fileName = `recording_${timestamp}.webm`
 
@@ -259,7 +154,7 @@ export function RecordingInterface({
         contentType: recordingBlob.type || 'audio/webm',
       })
 
-      // Upload to S3 using pre-signed URL
+      // Upload to S3
       await axios.put(presignedData.uploadURL, recordingBlob, {
         headers: {
           'Content-Type': recordingBlob.type || 'audio/webm',
@@ -277,7 +172,7 @@ export function RecordingInterface({
       // Construct the recording URL
       const recordingURL = `https://storage.clinicalops.co/${presignedData.fileKey}`
 
-      // Create medical history from recording (returns immediately with pending status)
+      // Create medical history from recording
       const result = await createHistory.mutateAsync({
         doctorID,
         recordingURL,
@@ -285,14 +180,12 @@ export function RecordingInterface({
 
       // Start polling for status updates
       setProcessingHistoryID(result.history.historyID)
-      
-      // Note: We'll update the recording status to 'synced' in the sync manager later
-      // For now, just log that upload was successful
-      console.log('Recording uploaded successfully, historyID:', result.history.historyID)
     } catch (error: unknown) {
       setIsUploading(false)
       const errorMessage =
-        error instanceof Error ? error.message : 'Error al procesar la grabación'
+        error instanceof Error
+          ? error.message
+          : 'Error al procesar la grabación'
       if (onError) {
         onError(errorMessage)
       }
@@ -338,7 +231,7 @@ export function RecordingInterface({
       // Construct the recording URL
       const recordingURL = `https://storage.clinicalops.co/${presignedData.fileKey}`
 
-      // Create medical history from recording (returns immediately with pending status)
+      // Create medical history from recording
       const result = await createHistory.mutateAsync({
         doctorID,
         recordingURL,
@@ -357,9 +250,7 @@ export function RecordingInterface({
     }
   }
 
-  const isRecording = status === 'recording'
-  const isPaused = status === 'paused'
-  const isStopped = status === 'stopped' && recordingBlob !== null
+  const isStopped = !isRecording && recordingBlob !== null
   const isProcessing = !!processingHistoryID
   const processingStatus = historyStatus.data?.history?.status
 
@@ -376,16 +267,7 @@ export function RecordingInterface({
       }
     }
     if (isStopped) {
-      if (!isOnline) {
-        return 'Grabación guardada localmente. Sin conexión a internet - la transcripción se realizará automáticamente cuando se restaure la conexión.'
-      }
       return 'Grabación lista. Presione "Transcribir" para procesar.'
-    }
-    if (!isOnline && (isRecording || isPaused)) {
-      return 'Grabando sin conexión. La grabación se guardará localmente y se subirá automáticamente cuando se restaure la conexión.'
-    }
-    if (!isOnline) {
-      return 'Sin conexión a internet. Puede grabar normalmente - las grabaciones se guardarán localmente y se sincronizarán automáticamente cuando se restaure la conexión.'
     }
     return 'Presione "Grabar" para iniciar o "Subir archivo" para cargar una grabación existente.'
   }
@@ -393,35 +275,9 @@ export function RecordingInterface({
   return (
     <div className='flex min-h-[500px] sm:min-h-[600px] lg:min-h-[760px] w-full max-w-2xl flex-col px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16 text-center'>
       <header className='flex w-full mb-12 flex-col items-center gap-4 sm:gap-6'>
-        <div className='flex items-center justify-center gap-3 flex-wrap'>
-          <h2 className='text-2xl sm:text-3xl font-semibold px-4'>
-            Grabando Nueva Historia Clínica
-          </h2>
-          <NetworkStatusBadge />
-        </div>
-        {showSyncProgress && isSyncing && (
-          <div className='flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400'>
-            <Loader2 className='h-4 w-4 animate-spin' />
-            <span>
-              Sincronizando {syncProgress.current} de {syncProgress.total}...
-            </span>
-          </div>
-        )}
-        {storageStats && storageStats.pendingCount > 0 && (
-          <Link href='/dashboard/grabacion/gestionar'>
-            <div className='flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer'>
-              <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold text-xs'>
-                {storageStats.pendingCount}
-              </span>
-              <span>
-                {storageStats.pendingCount === 1
-                  ? 'grabación pendiente de sincronización'
-                  : 'grabaciones pendientes de sincronización'}
-              </span>
-              <FolderOpen className='h-4 w-4' />
-            </div>
-          </Link>
-        )}
+        <h2 className='text-2xl sm:text-3xl font-semibold px-4'>
+          Grabando Nueva Historia Clínica
+        </h2>
         <p className='text-sm sm:text-base leading-relaxed text-muted-foreground px-4'>
           {getStatusMessage()}
         </p>
@@ -471,11 +327,7 @@ export function RecordingInterface({
 
             <motion.div
               className={`relative flex h-28 w-28 sm:h-36 sm:w-36 lg:h-40 lg:w-40 items-center justify-center rounded-full ${
-                isRecording
-                  ? 'bg-teal-500'
-                  : isPaused
-                    ? 'bg-yellow-500'
-                    : 'bg-gray-200'
+                isRecording ? 'bg-teal-500' : 'bg-gray-200'
               }`}
               animate={
                 isRecording
@@ -528,7 +380,7 @@ export function RecordingInterface({
 
       <footer className='mt-8 sm:mt-12 lg:mt-20 flex w-full flex-col items-center gap-6 sm:gap-8 lg:gap-12'>
         <div className='flex flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6'>
-          {!isRecording && !isPaused && !isStopped && (
+          {!isRecording && !isStopped && (
             <Button
               onClick={startRecording}
               size='lg'
@@ -540,41 +392,16 @@ export function RecordingInterface({
             </Button>
           )}
 
-          {(isRecording || isPaused) && (
-            <>
-              {isRecording && (
-                <Button
-                  onClick={pauseRecording}
-                  variant='outline'
-                  size='lg'
-                  className='text-sm sm:text-base'
-                >
-                  <Square className='mr-2 h-4 w-4 sm:h-5 sm:w-5' />
-                  Pausar
-                </Button>
-              )}
-
-              {isPaused && (
-                <Button
-                  onClick={resumeRecording}
-                  size='lg'
-                  className='bg-teal-500 hover:bg-teal-600 text-sm sm:text-base'
-                >
-                  <Play className='mr-2 h-4 w-4 sm:h-5 sm:w-5' />
-                  Reanudar
-                </Button>
-              )}
-
-              <Button
-                onClick={handleStop}
-                variant='destructive'
-                size='lg'
-                className='text-sm sm:text-base'
-              >
-                <Square className='mr-2 h-4 w-4 sm:h-5 sm:w-5' />
-                Detener
-              </Button>
-            </>
+          {isRecording && (
+            <Button
+              onClick={stopRecording}
+              variant='destructive'
+              size='lg'
+              className='text-sm sm:text-base'
+            >
+              <Square className='mr-2 h-4 w-4 sm:h-5 sm:w-5' />
+              Detener
+            </Button>
           )}
 
           {isStopped && !isUploading && !isProcessing && (
@@ -582,7 +409,7 @@ export function RecordingInterface({
               <Button
                 onClick={() => {
                   setRecordingBlob(null)
-                  setSavedRecordingID(null)
+                  setDuration({ hours: 0, minutes: 0, seconds: 0 })
                 }}
                 variant='outline'
                 size='lg'
@@ -590,29 +417,16 @@ export function RecordingInterface({
               >
                 Volver a Grabar
               </Button>
-              <div className='flex flex-col items-center gap-2'>
-                <Button
-                  onClick={handleUploadAndProcess}
-                  size='lg'
-                  className='bg-teal-500 hover:bg-teal-600 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed'
-                  disabled={!isOnline}
-                  title={
-                    !isOnline
-                      ? 'Sin conexión a internet. La grabación se sincronizará automáticamente cuando se restaure la conexión.'
-                      : 'Transcribir grabación a historia clínica'
-                  }
-                >
-                  <span className='hidden sm:inline'>
-                    Transcribir a Historia Clínica
-                  </span>
-                  <span className='sm:hidden'>Transcribir</span>
-                </Button>
-                {!isOnline && (
-                  <p className='text-xs text-amber-600 dark:text-amber-400 text-center max-w-xs'>
-                    La grabación se ha guardado localmente y se procesará automáticamente cuando se restaure la conexión
-                  </p>
-                )}
-              </div>
+              <Button
+                onClick={handleUploadAndProcess}
+                size='lg'
+                className='bg-teal-500 hover:bg-teal-600 text-sm sm:text-base'
+              >
+                <span className='hidden sm:inline'>
+                  Transcribir a Historia Clínica
+                </span>
+                <span className='sm:hidden'>Transcribir</span>
+              </Button>
             </>
           )}
         </div>
@@ -665,30 +479,26 @@ export function RecordingInterface({
           </div>
         )}
 
-        {!isRecording &&
-          !isPaused &&
-          !isStopped &&
-          !isUploading &&
-          !isProcessing && (
-            <div className='mt-8 sm:mt-10 lg:mt-14 border-t pt-6 sm:pt-8 w-full'>
-              <label
-                htmlFor='file-upload'
-                className='flex cursor-pointer items-center justify-center gap-2 text-muted-foreground transition-colors hover:text-foreground px-4'
-              >
-                <Upload className='h-4 w-4' />
-                <span className='text-xs sm:text-sm text-center'>
-                  O subir archivo de audio desde el PC
-                </span>
-              </label>
-              <input
-                id='file-upload'
-                type='file'
-                accept='audio/*'
-                onChange={handleFileUpload}
-                className='hidden'
-              />
-            </div>
-          )}
+        {!isRecording && !isStopped && !isUploading && !isProcessing && (
+          <div className='mt-8 sm:mt-10 lg:mt-14 border-t pt-6 sm:pt-8 w-full'>
+            <label
+              htmlFor='file-upload'
+              className='flex cursor-pointer items-center justify-center gap-2 text-muted-foreground transition-colors hover:text-foreground px-4'
+            >
+              <Upload className='h-4 w-4' />
+              <span className='text-xs sm:text-sm text-center'>
+                O subir archivo de audio desde el PC
+              </span>
+            </label>
+            <input
+              id='file-upload'
+              type='file'
+              accept='audio/*'
+              onChange={handleFileUpload}
+              className='hidden'
+            />
+          </div>
+        )}
       </footer>
     </div>
   )
