@@ -1,5 +1,0 @@
-# .pre-commit-config.yaml
-# Archivo básico de configuración para pre-commit
-# Puedes agregar hooks más adelante bajo la clave "repos"
-
-repos: []
