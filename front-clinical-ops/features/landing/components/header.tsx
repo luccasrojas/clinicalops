@@ -51,14 +51,15 @@ export function Header() {
             <a
               key={link.href}
               href={link.href}
-              className='text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors tracking-tight'
+              className='text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors tracking-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md px-2 py-1'
             >
               {link.label}
             </a>
           ))}
           <Button
             variant='primary'
-            className='py-2.5 px-5 text-xs uppercase tracking-wider font-bold shadow-none hover:shadow-md'
+            className='py-2.5 px-5 text-xs uppercase tracking-wider font-bold shadow-none hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+            aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
           >
             Prueba ClinicalNotes
           </Button>
@@ -66,10 +67,11 @@ export function Header() {
 
         {/* Mobile Menu Button */}
         <button
-          className='md:hidden text-slate-900'
+          className='md:hidden text-slate-900 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-label={isMobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={isMobileMenuOpen}
+          aria-controls='mobile-menu'
         >
           {isMobileMenuOpen ? (
             <X strokeWidth={1.5} aria-hidden='true' />
@@ -81,18 +83,27 @@ export function Header() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className='md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl shadow-xl border-t border-slate-100 py-8 px-6 flex flex-col gap-6 animate-in slide-in-from-top-5'>
+        <div
+          id='mobile-menu'
+          className='md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl shadow-xl border-t border-slate-100 py-8 px-6 flex flex-col gap-6 animate-in slide-in-from-top-5'
+          role='menu'
+        >
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className='text-slate-900 font-semibold text-lg'
+              className='text-slate-900 font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md px-2 py-1'
               onClick={handleNavClick}
+              role='menuitem'
             >
               {link.label}
             </a>
           ))}
-          <Button variant='gradient' className='w-full justify-center mt-2'>
+          <Button
+            variant='gradient'
+            className='w-full justify-center mt-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+            aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
+          >
             Prueba ClinicalNotes
           </Button>
         </div>

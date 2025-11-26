@@ -458,3 +458,99 @@ body {
     display: none;
   }
 }
+
+/* ==========================================================================
+   ROI Calculator Dark Theme Slider Styles
+   ========================================================================== */
+
+/* Custom slider thumb styling for dark theme */
+input[type='range'].slider-cyan::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(34 211 238);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type='range'].slider-cyan::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.4);
+}
+
+input[type='range'].slider-purple::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(168 85 247);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type='range'].slider-purple::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.4);
+}
+
+input[type='range'].slider-orange::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(251 146 60);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type='range'].slider-orange::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.4);
+}
+
+/* Firefox slider thumb styling */
+input[type='range'].slider-cyan::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(34 211 238);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type='range'].slider-purple::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(168 85 247);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type='range'].slider-orange::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgb(251 146 60);
+  cursor: pointer;
+  border: 3px solid rgb(15 23 42);
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.3);
+  transition: all 0.2s ease;
+}
+
+/* Focus states for accessibility */
+input[type='range']:focus-visible {
+  outline: 2px solid rgb(34 211 238);
+  outline-offset: 2px;
+}

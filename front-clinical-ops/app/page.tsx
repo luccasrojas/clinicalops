@@ -1,11 +1,11 @@
 import {
   Hero,
-  Features,
-  HowItWorks,
-  Testimonials,
-  CTA,
   Header,
   Footer,
+  FeaturesSection,
+  ProblemSection,
+  ROICalculator,
+  SecuritySection,
 } from '@/features/landing'
 
 export default function Home() {
@@ -14,13 +14,12 @@ export default function Home() {
       <Header />
       <main className='flex-1'>
         <Hero />
-        <Features />
-        <HowItWorks />
-        <Testimonials />
-        <CTA />
+        <ProblemSection />
+        <FeaturesSection />
+        <ROICalculator />
+        <SecuritySection />
       </main>
       <Footer />
     </div>
   )
 }
-

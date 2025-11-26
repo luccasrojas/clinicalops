@@ -16,18 +16,23 @@ export function ProblemCard({
   gradientTo,
 }: ProblemCardProps) {
   return (
-    <div className='group relative p-px rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1'>
+    <article className='group relative p-px rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0'>
       {/* Background gradient */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} ${gradientTo} opacity-10 group-hover:opacity-30 transition-opacity duration-500`}
+        className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} ${gradientTo} opacity-10 group-hover:opacity-30 transition-opacity duration-500 motion-reduce:transition-none`}
+        aria-hidden='true'
       ></div>
 
-      <div className='relative bg-[#0F172A] h-full rounded-[2rem] p-10 flex flex-col justify-center backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-colors'>
+      <div className='relative bg-[#0F172A] h-full rounded-[2rem] p-10 flex flex-col justify-center backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-colors motion-reduce:transition-none'>
         <div
           className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradientFrom} ${gradientTo} p-[1px] mb-6 shadow-lg`}
         >
           <div className='w-full h-full bg-[#0F172A] rounded-[10px] flex items-center justify-center'>
-            <Icon className='w-5 h-5 text-white opacity-90' strokeWidth={1.5} />
+            <Icon
+              className='w-5 h-5 text-white opacity-90'
+              strokeWidth={1.5}
+              aria-hidden='true'
+            />
           </div>
         </div>
 
@@ -38,6 +43,6 @@ export function ProblemCard({
           {description}
         </p>
       </div>
-    </div>
+    </article>
   )
 }
