@@ -46,6 +46,7 @@ export function RecordingCard({
   const [isRetrying, setIsRetrying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const playPromiseRef = useRef<Promise<void> | null>(null)
 
   const getStatusBadgeVariant = (status: RecordingStatus) => {
     switch (status) {
@@ -81,9 +82,9 @@ export function RecordingCard({
     }
   }
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
+    // Create audio element on first use
     if (!audioRef.current) {
-      // Create audio element and URL if not exists
       const url = URL.createObjectURL(recording.blob)
       setAudioUrl(url)
       const audio = new Audio(url)
@@ -91,22 +92,50 @@ export function RecordingCard({
 
       audio.addEventListener('ended', () => {
         setIsPlaying(false)
+        playPromiseRef.current = null
       })
 
-      audio.addEventListener('error', () => {
+      audio.addEventListener('error', (e) => {
         setIsPlaying(false)
-        console.error('Error playing audio')
+        playPromiseRef.current = null
+        console.error('Error playing audio:', e)
       })
     }
 
+    const audio = audioRef.current
+
+    // Toggle play/pause
     if (isPlaying) {
-      audioRef.current.pause()
+      // Pause the audio
+      audio.pause()
       setIsPlaying(false)
+      playPromiseRef.current = null
     } else {
-      audioRef.current.play()
-      setIsPlaying(true)
-      if (onPlay) {
-        onPlay(recording)
+      // Play the audio
+      try {
+        const playPromise = audio.play()
+        playPromiseRef.current = playPromise
+
+        await playPromise
+
+        // Only update state if play succeeded
+        setIsPlaying(true)
+        playPromiseRef.current = null
+
+        if (onPlay) {
+          onPlay(recording)
+        }
+      } catch (error) {
+        // Clear the promise ref on any error
+        playPromiseRef.current = null
+
+        const err = error as Error
+        // Silently handle AbortError (happens when user clicks rapidly)
+        if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+          console.error('Failed to play audio:', error)
+        }
+
+        setIsPlaying(false)
       }
     }
   }
@@ -151,6 +180,7 @@ export function RecordingCard({
         URL.revokeObjectURL(audioUrl)
         setAudioUrl(null)
       }
+      playPromiseRef.current = null
     } catch (error) {
       console.error('Error deleting recording:', error)
     } finally {
@@ -169,6 +199,7 @@ export function RecordingCard({
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl)
       }
+      playPromiseRef.current = null
     }
   }, [audioUrl])
 

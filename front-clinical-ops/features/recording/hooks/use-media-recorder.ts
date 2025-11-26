@@ -31,6 +31,9 @@ export interface UseMediaRecorderReturn {
   duration: number
   error: RecordingError | null
   isSupported: boolean
+  isPauseResumeSupported: boolean // true if browser supports pause/resume
+  audioLevel: number // 0-100, current audio level
+  isAudioDetected: boolean // true if audio is being captured
 }
 
 /**
@@ -53,6 +56,15 @@ export function useMediaRecorder(
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<RecordingError | null>(null)
   const [isSupported] = useState(() => isMediaRecorderSupported())
+  const [isPauseResumeSupported] = useState(() => {
+    // Check if MediaRecorder supports pause/resume
+    // Safari doesn't support these methods
+    return typeof MediaRecorder !== 'undefined' &&
+           typeof MediaRecorder.prototype.pause === 'function' &&
+           typeof MediaRecorder.prototype.resume === 'function'
+  })
+  const [audioLevel, setAudioLevel] = useState(0)
+  const [isAudioDetected, setIsAudioDetected] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -61,6 +73,43 @@ export function useMediaRecorder(
   const pausedDurationRef = useRef<number>(0)
   const lastPauseTimeRef = useRef<number>(0)
   const animationFrameRef = useRef<number | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const audioLevelFrameRef = useRef<number | null>(null)
+  const lastAudioDetectionRef = useRef<number>(0)
+
+  // Audio level monitoring using Web Audio API
+  const updateAudioLevel = useCallback(() => {
+    if (!analyserRef.current) return
+
+    const analyser = analyserRef.current
+    const bufferLength = analyser.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+
+    analyser.getByteFrequencyData(dataArray)
+
+    // Calculate average volume level (0-255)
+    const sum = dataArray.reduce((acc, val) => acc + val, 0)
+    const average = sum / bufferLength
+
+    // Convert to percentage (0-100)
+    const level = Math.min(100, Math.round((average / 255) * 100))
+    setAudioLevel(level)
+
+    // Detect if audio is present (threshold: 2% to avoid noise floor)
+    const isAudioPresent = level > 2
+    setIsAudioDetected(isAudioPresent)
+
+    // Track last time we detected audio
+    if (isAudioPresent) {
+      lastAudioDetectionRef.current = Date.now()
+    }
+
+    // Continue monitoring if recording or paused (to show level when resuming)
+    if (status === 'recording' || status === 'paused') {
+      audioLevelFrameRef.current = requestAnimationFrame(updateAudioLevel)
+    }
+  }, [status])
 
   // Duration timer using requestAnimationFrame for precision
   const updateDuration = useCallback(() => {
@@ -74,18 +123,38 @@ export function useMediaRecorder(
 
   useEffect(() => {
     if (status === 'recording') {
+      // Start both duration and audio level monitoring
       animationFrameRef.current = requestAnimationFrame(updateDuration)
-    } else if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
+      audioLevelFrameRef.current = requestAnimationFrame(updateAudioLevel)
+    } else if (status === 'paused') {
+      // When paused, stop duration timer but keep audio level monitoring
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      // Continue audio level monitoring
+      audioLevelFrameRef.current = requestAnimationFrame(updateAudioLevel)
+    } else {
+      // Stop both when idle or stopped
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      if (audioLevelFrameRef.current) {
+        cancelAnimationFrame(audioLevelFrameRef.current)
+        audioLevelFrameRef.current = null
+      }
     }
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
+      if (audioLevelFrameRef.current) {
+        cancelAnimationFrame(audioLevelFrameRef.current)
+      }
     }
-  }, [status, updateDuration])
+  }, [status, updateDuration, updateAudioLevel])
 
   // Cleanup function for streams and object URLs
   const cleanup = useCallback(() => {
@@ -96,11 +165,25 @@ export function useMediaRecorder(
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current = null
     }
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+    if (analyserRef.current) {
+      analyserRef.current = null
+    }
+    if (audioLevelFrameRef.current) {
+      cancelAnimationFrame(audioLevelFrameRef.current)
+      audioLevelFrameRef.current = null
+    }
     chunksRef.current = []
     startTimeRef.current = 0
     pausedDurationRef.current = 0
     lastPauseTimeRef.current = 0
+    lastAudioDetectionRef.current = 0
     setDuration(0)
+    setAudioLevel(0)
+    setIsAudioDetected(false)
   }, [])
 
   // Cleanup on unmount
@@ -133,6 +216,24 @@ export function useMediaRecorder(
       })
 
       streamRef.current = stream
+
+      // Set up audio level monitoring with Web Audio API
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as typeof window & { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext
+      const audioContext = new AudioContextClass()
+      const source = audioContext.createMediaStreamSource(stream)
+      const analyser = audioContext.createAnalyser()
+
+      // Configure analyser for real-time monitoring
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.8
+
+      source.connect(analyser)
+
+      audioContextRef.current = audioContext
+      analyserRef.current = analyser
 
       // Determine the best supported MIME type
       let selectedMimeType = mimeType
@@ -270,5 +371,8 @@ export function useMediaRecorder(
     duration,
     error,
     isSupported,
+    isPauseResumeSupported,
+    audioLevel,
+    isAudioDetected,
   }
 }

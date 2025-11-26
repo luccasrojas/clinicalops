@@ -21,8 +21,8 @@ import { useHistoryStatus } from '../api/get-history-status'
 import { NetworkStatusBadge } from './network-status-badge'
 import { useNetworkStatus } from '../hooks/use-network-status'
 import { useRecordingStorage } from '../hooks/use-recording-storage'
-import { useEnhancedRecording } from '../hooks/use-enhanced-recording'
-import { RecordingSegments } from './recording-segments'
+import { useMediaRecorder } from '../hooks/use-media-recorder'
+import { AudioLevelIndicator } from './audio-level-indicator'
 import { useSyncManager } from '../hooks/use-sync-manager'
 import { useToast } from '@/lib/toast'
 import { useRouter } from 'next/navigation'
@@ -45,6 +45,7 @@ export function RecordingInterface({
   )
   const [savedRecordingID, setSavedRecordingID] = useState<string | null>(null)
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null)
+  const [silentWarningShown, setSilentWarningShown] = useState(false)
 
   const generatePresignedUrl = useGeneratePresignedUrl()
   const createHistory = useCreateHistoryFromRecording()
@@ -70,45 +71,25 @@ export function RecordingInterface({
     onSyncEvent: (event) => {
       switch (event.type) {
         case 'sync_started':
+          // Sync silently in background
           setShowSyncProgress(true)
-          addToast({
-            variant: 'info',
-            title: 'Sincronizando grabaciones',
-            description: 'Subiendo grabaciones pendientes al servidor...',
-            duration: 3000,
-          })
+          console.log('🔄 Background sync started...')
           break
 
         case 'sync_completed':
+          // Sync completed silently
           setShowSyncProgress(false)
-          addToast({
-            variant: 'success',
-            title: '¡Sincronización completada!',
-            description: `${event.totalSynced} ${event.totalSynced === 1 ? 'grabación sincronizada' : 'grabaciones sincronizadas'} exitosamente.`,
-            duration: 5000,
-            action: {
-              label: 'Ver historias',
-              onClick: () => router.push('/dashboard/historias'),
-            },
-          })
+          console.log(`✅ Background sync completed: ${event.totalSynced} recording(s) synced`)
           break
 
         case 'sync_failed':
+          // Only log errors, no user notification
           setShowSyncProgress(false)
-          addToast({
-            variant: 'error',
-            title: 'Error en sincronización',
-            description: `${event.totalFailed} ${event.totalFailed === 1 ? 'grabación falló' : 'grabaciones fallaron'}. ${event.totalSynced || 0} sincronizadas exitosamente.`,
-            duration: 7000,
-            action: {
-              label: 'Ver detalles',
-              onClick: () => router.push('/dashboard/grabacion/gestionar'),
-            },
-          })
+          console.error(`❌ Background sync failed: ${event.totalFailed} recording(s) failed, ${event.totalSynced || 0} synced`)
           break
 
         case 'recording_synced':
-          // Individual recording synced - could show subtle notification
+          // Individual recording synced
           console.log(
             'Recording synced:',
             event.recordingId,
@@ -125,7 +106,7 @@ export function RecordingInterface({
     },
   })
 
-  // Use enhanced recording hook with segment tracking
+  // Use native recording hook with audio level monitoring
   const {
     status,
     startRecording,
@@ -133,8 +114,10 @@ export function RecordingInterface({
     resumeRecording,
     stopRecording,
     duration: durationSeconds,
-    segments,
-  } = useEnhancedRecording({
+    audioLevel,
+    isAudioDetected,
+    isPauseResumeSupported,
+  } = useMediaRecorder({
     onError: (err) => {
       console.error('Recording error:', err)
       if (onError) {
@@ -150,6 +133,16 @@ export function RecordingInterface({
     seconds: durationSeconds % 60,
   }
 
+  // Derived state for UI logic
+  const isRecording = status === 'recording'
+  const isPaused = status === 'paused'
+  const isStopped = status === 'stopped' && recordingBlob !== null
+  const isProcessing = !!processingHistoryID
+  const processingStatus = historyStatus.data?.history?.status
+
+  // Debug: Log recording state
+  console.log('[RecordingInterface] Status:', status, '| isRecording:', isRecording, '| isPaused:', isPaused, '| isPauseResumeSupported:', isPauseResumeSupported)
+
   // Refresh storage stats periodically to keep pending count updated
   useEffect(() => {
     const interval = setInterval(() => {
@@ -158,6 +151,34 @@ export function RecordingInterface({
 
     return () => clearInterval(interval)
   }, [refreshStorageStats])
+
+  // Monitor audio detection and warn if silent for too long
+  useEffect(() => {
+    if (!isRecording || silentWarningShown) return
+
+    // Wait 5 seconds after recording starts
+    const warningTimer = setTimeout(() => {
+      if (!isAudioDetected && isRecording) {
+        addToast({
+          variant: 'warning',
+          title: '⚠ No se detecta audio',
+          description:
+            'El micrófono no está capturando audio. Verifique que el micrófono esté conectado y que los permisos estén habilitados.',
+          duration: 10000,
+        })
+        setSilentWarningShown(true)
+      }
+    }, 5000)
+
+    return () => clearTimeout(warningTimer)
+  }, [isRecording, isAudioDetected, silentWarningShown, addToast])
+
+  // Reset silent warning when recording stops
+  useEffect(() => {
+    if (status === 'idle' || status === 'stopped') {
+      setSilentWarningShown(false)
+    }
+  }, [status])
 
   // Warn user before leaving if recording is in progress
   useEffect(() => {
@@ -369,12 +390,6 @@ export function RecordingInterface({
     }
   }
 
-  const isRecording = status === 'recording'
-  const isPaused = status === 'paused'
-  const isStopped = status === 'stopped' && recordingBlob !== null
-  const isProcessing = !!processingHistoryID
-  const processingStatus = historyStatus.data?.history?.status
-
   const getStatusMessage = () => {
     if (isUploading) {
       return 'Subiendo grabación...'
@@ -437,6 +452,11 @@ export function RecordingInterface({
         <p className='text-sm sm:text-base leading-relaxed text-muted-foreground px-4'>
           {getStatusMessage()}
         </p>
+        {!isPauseResumeSupported && (isRecording || isPaused) && (
+          <p className='text-xs text-amber-600 dark:text-amber-400 px-4 mt-2'>
+            ⚠ Tu navegador no soporta pausar/reanudar grabaciones. Usa el botón "Detener" cuando termines.
+          </p>
+        )}
       </header>
 
       <section className='flex flex-1 items-center justify-center'>
@@ -556,14 +576,14 @@ export function RecordingInterface({
         </div>
       </section>
 
-      {/* Recording segments visualization */}
-      {(isRecording || isPaused || isStopped) && segments.length > 0 && (
-        <section className='w-full px-4'>
-          <RecordingSegments
-            segments={segments}
+      {/* Audio level indicator */}
+      {(isRecording || isPaused) && (
+        <section className='w-full px-4 mt-8'>
+          <AudioLevelIndicator
+            audioLevel={audioLevel}
+            isAudioDetected={isAudioDetected}
+            isRecording={isRecording}
             isPaused={isPaused}
-            showSummary={isStopped}
-            totalDuration={durationSeconds}
           />
         </section>
       )}
@@ -584,7 +604,8 @@ export function RecordingInterface({
 
           {(isRecording || isPaused) && (
             <>
-              {isRecording && (
+              {/* Only show pause button if browser supports it */}
+              {isRecording && isPauseResumeSupported && (
                 <Button
                   onClick={pauseRecording}
                   variant='outline'
@@ -596,7 +617,7 @@ export function RecordingInterface({
                 </Button>
               )}
 
-              {isPaused && (
+              {isPaused && isPauseResumeSupported && (
                 <Button
                   onClick={resumeRecording}
                   size='lg'
