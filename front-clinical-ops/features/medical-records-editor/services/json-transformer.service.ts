@@ -35,19 +35,24 @@ export interface TiptapNode extends JSONContent {
  * Servicio principal de transformación
  */
 export class JsonTransformerService {
+  private untitledHeadingCounter = 0;
+
   /**
    * Convierte JSON jerárquico a documento Tiptap
    *
    * @param json - Objeto JSON con estructura anidada
    * @returns Documento Tiptap con headings y paragraphs
    */
-  jsonToTiptap(json: JsonObject): JSONContent {
+  jsonToTiptap(json: JsonObject, lockedStructure?: JsonObject): JSONContent {
     if (!json || typeof json !== 'object' || Array.isArray(json)) {
       console.warn('[JsonTransformer] Invalid JSON received:', json);
       return this.createEmptyDocument();
     }
 
-    const content = this.transformObjectToNodes(json, 1);
+    const lockedPaths = lockedStructure
+      ? this.collectLockedPaths(lockedStructure)
+      : undefined;
+    const content = this.transformObjectToNodes(json, 1, '', lockedPaths);
 
     if (!content || content.length === 0) {
       return this.createEmptyDocument();
@@ -66,6 +71,8 @@ export class JsonTransformerService {
    * @returns JSON con estructura anidada
    */
   tiptapToJson(tiptapDoc: JSONContent): JsonObject {
+    this.untitledHeadingCounter = 0;
+
     if (!tiptapDoc.content || tiptapDoc.content.length === 0) {
       return {};
     }
@@ -87,7 +94,8 @@ export class JsonTransformerService {
         }
 
         const level = node.attrs?.level ?? 1;
-        const jsonKey = node.attrs?.jsonKey || unformatKey(this.extractText(node as TiptapNode));
+        const preferAttrKey = node.attrs?.isNew === false;
+        const jsonKey = this.resolveJsonKey(node as TiptapNode, preferAttrKey);
 
         // Ajustar stack al nivel correcto
         while (stack.length > 1 && stack[stack.length - 1].level >= level) {
@@ -132,13 +140,15 @@ export class JsonTransformerService {
   private transformObjectToNodes(
     obj: JsonObject,
     level: number,
-    parentPath: string = ''
+    parentPath: string = '',
+    lockedPaths?: Set<string>
   ): TiptapNode[] {
     const nodes: TiptapNode[] = [];
 
     for (const [key, value] of Object.entries(obj)) {
       const currentLevel = Math.min(level, 3); // Max H3
       const currentPath = parentPath ? `${parentPath}.${key}` : key;
+      const isOriginalHeading = lockedPaths ? lockedPaths.has(currentPath) : true;
 
       // 1. Crear heading para la key
       nodes.push({
@@ -146,7 +156,7 @@ export class JsonTransformerService {
         attrs: {
           level: currentLevel,
           jsonKey: key,
-          isNew: false, // Marca como original (no editable)
+          isNew: !isOriginalHeading, // Nuevos bloques se mantienen editables
           parentPath: currentPath,
         },
         content: [{ type: 'text', text: formatKey(key) }],
@@ -179,7 +189,14 @@ export class JsonTransformerService {
         for (const item of value) {
           if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
             // Array de objetos → Recursión
-            nodes.push(...this.transformObjectToNodes(item as JsonObject, level + 1, currentPath));
+            nodes.push(
+              ...this.transformObjectToNodes(
+                item as JsonObject,
+                level + 1,
+                currentPath,
+                lockedPaths
+              )
+            );
           } else {
             // Array de primitivos → Paragraph con bullet
             nodes.push({
@@ -191,11 +208,68 @@ export class JsonTransformerService {
         }
       } else if (typeof value === 'object') {
         // Objeto anidado → Recursión
-        nodes.push(...this.transformObjectToNodes(value as JsonObject, level + 1, currentPath));
+        nodes.push(
+          ...this.transformObjectToNodes(
+            value as JsonObject,
+            level + 1,
+            currentPath,
+            lockedPaths
+          )
+        );
       }
     }
 
     return nodes;
+  }
+
+  private collectLockedPaths(
+    obj: JsonObject,
+    parentPath: string = '',
+    accumulator: Set<string> = new Set()
+  ): Set<string> {
+    for (const [key, value] of Object.entries(obj)) {
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+      accumulator.add(currentPath);
+
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          if (item && typeof item === 'object' && !Array.isArray(item)) {
+            this.collectLockedPaths(item as JsonObject, currentPath, accumulator);
+          }
+        });
+      } else if (value && typeof value === 'object') {
+        this.collectLockedPaths(value as JsonObject, currentPath, accumulator);
+      }
+    }
+
+    return accumulator;
+  }
+
+  /**
+   * Obtiene la key JSON para un heading nuevo u original.
+   * - Headings originales (isNew = false) siempre respetan el jsonKey original.
+   * - Headings nuevos priorizan el texto visible; si está vacío usamos un id
+   *   temporal para mantener la consistencia entre guardados.
+   */
+  private resolveJsonKey(node: TiptapNode, preferAttr: boolean): string {
+    const attrKey =
+      typeof node.attrs?.jsonKey === 'string' && node.attrs.jsonKey.length > 0
+        ? node.attrs.jsonKey
+        : null;
+
+    const derivedKey = unformatKey(this.extractText(node).trim());
+    let resolvedKey = preferAttr ? attrKey || derivedKey : derivedKey || attrKey;
+
+    if (!resolvedKey || resolvedKey.length === 0) {
+      resolvedKey = this.generateUntitledKey();
+    }
+
+    return resolvedKey;
+  }
+
+  private generateUntitledKey(): string {
+    this.untitledHeadingCounter += 1;
+    return `bloque_sin_titulo_${this.untitledHeadingCounter}`;
   }
 
   /**

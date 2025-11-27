@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Menu, X, Activity } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { NAV_LINKS } from '../constants/landing-data'
@@ -56,13 +57,15 @@ export function Header() {
               {link.label}
             </a>
           ))}
-          <Button
-            variant='primary'
-            className='py-2.5 px-5 text-xs uppercase tracking-wider font-bold shadow-none hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
-            aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
-          >
-            Prueba ClinicalNotes
-          </Button>
+          <Link href='/auth/login'>
+            <Button
+              variant='primary'
+              className='py-2.5 px-5 text-xs uppercase tracking-wider font-bold shadow-none hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+              aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
+            >
+              Prueba ClinicalNotes
+            </Button>
+          </Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -99,13 +102,15 @@ export function Header() {
               {link.label}
             </a>
           ))}
-          <Button
-            variant='gradient'
-            className='w-full justify-center mt-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
-            aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
-          >
-            Prueba ClinicalNotes
-          </Button>
+          <Link href='/auth/login'>
+            <Button
+              variant='gradient'
+              className='w-full justify-center mt-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+              aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
+            >
+              Prueba ClinicalNotes
+            </Button>
+          </Link>
         </div>
       )}
     </nav>

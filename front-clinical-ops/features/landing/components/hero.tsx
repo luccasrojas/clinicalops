@@ -1,3 +1,5 @@
+'use client'
+
 import {
   Loader2,
   ArrowRight,
@@ -10,6 +12,7 @@ import {
   CheckCircle,
   Cpu,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { SectionBadge } from '@/components/ui/section-badge'
 
@@ -50,21 +53,29 @@ export function Hero() {
         </p>
 
         <div className='flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-20 sm:mb-32 px-4'>
-          <Button
-            variant='primary'
-            className='justify-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
-            aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
-          >
-            Prueba ClinicalNotes{' '}
-            <ArrowRight
-              className='w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform motion-reduce:transition-none motion-reduce:group-hover:translate-x-0'
-              aria-hidden='true'
-            />
-          </Button>
+          <Link href='/auth/login'>
+            <Button
+              variant='primary'
+              className='justify-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+              aria-label='Prueba ClinicalNotes - Iniciar prueba gratuita'
+            >
+              Prueba ClinicalNotes{' '}
+              <ArrowRight
+                className='w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform motion-reduce:transition-none motion-reduce:group-hover:translate-x-0'
+                aria-hidden='true'
+              />
+            </Button>
+          </Link>
           <Button
             variant='secondary'
             className='justify-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
             aria-label='Calcular ROI Institucional - Abrir calculadora'
+            onClick={() => {
+              const element = document.getElementById('impacto')
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            }}
           >
             Calcular ROI Institucional
           </Button>
