@@ -14,6 +14,7 @@ El siguiente ejemplo contiene el estilo de escritura del medico, intenta escribi
   - No incluyas conductas terapéuticas ni hallazgos del examen físico
 - *Examen físico*: consigna hallazgos positivos y negativos relevantes. Si el área fue examinada y está normal, indica “sin hallazgos patológicos” o un descriptor clínico breve.
 - *Impresión diagnóstica*: incluir únicamente el diagnóstico principal de la consulta (o los principales si aplica), excluyendo antecedentes, comorbilidades y diagnósticos no relacionados al motivo de consulta actual.
+  - Escribir el nombre del diagnóstico y su código CIE10 correspondiente según el SISPRO: https://web.sispro.gov.co/WebPublico/Consultas/ConsultarDetalleReferenciaBasica.aspx?Code=CIE10.
 - *Análisis clínico*: impresión diagnóstica soportada por signos clínicos y justificación del plan de manejo.
 - *Plan de manejo*: en orden estándar. Solo incluir acciones explícitas.
 - Si una sección no tiene contenido no la incluyas en el JSON final.

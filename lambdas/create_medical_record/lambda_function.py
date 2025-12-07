@@ -1,11 +1,13 @@
 import os
-import openai
+from google import genai
+from google.genai import types
 from datetime import datetime
 import json
+import time
 
 from prompts import SYSTEM_PROMPT, CLINICAL_NOTE_EXAMPLE, DEFAULT_MEDICAL_RECORD_FORMAT
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def extract_field_order(format_template):
     """
@@ -35,7 +37,6 @@ def extract_field_order(format_template):
         print(f"Warning: Could not extract field order from format: {e}")
         return []
 
-
 def reorder_medical_record(data, field_order):
     """
     Reordena los campos del registro médico según el orden del formato del médico.
@@ -63,7 +64,7 @@ def reorder_medical_record(data, field_order):
                 if field in nested:
                     reordered_nested[field] = nested[field]
 
-            # Agregar campos adicionales que GPT-5 haya generado
+            # Agregar campos adicionales que el modelo haya generado
             for key, value in nested.items():
                 if key not in reordered_nested:
                     reordered_nested[key] = value
@@ -105,57 +106,70 @@ def generate_temporal_context():
     fecha = f"{hoy.day} de {mes} de {hoy.year} {hoy.strftime('%H:%M')}"
     return f"hoy es {dia_semana}, {fecha}."
 
-def generate_medical_record(transcription, medical_record_example, medical_record_format):
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+def generate_gemini_response(prompt, thinking_level="low", retries=5):
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3-pro-preview",
+                contents=prompt,
+                config={
+                    "tools": [
+                        {"url_context": {}},
+                        #{"google_search": {}}
+                    ],
+                    "response_mime_type": "application/json",
+                    #"response_json_schema": MatchResult.model_json_schema(),
+                    "thinking_config": types.ThinkingConfig(
+                        thinking_level=thinking_level
+                    ),
+                },
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Error al generar respuesta con Gemini (Intento {attempt + 1}): {str(e)}")
+                time.sleep(2 ** attempt)
+            else:
+                raise
+    raise RuntimeError("Gemini sigue saturado")
 
+def generate_medical_record(transcription, medical_record_example, medical_record_format):
     temporal_context = generate_temporal_context()
+    
+    # IMPORTANTE: Extraer el orden de campos ANTES de modificar el formato
+    field_order = extract_field_order(medical_record_format)
 
     try:
         medical_record_example = json.dumps(medical_record_example, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"Nota clínica no es un JSON válido, contiunando como texto plano: {e}")
+        print(f"Nota clínica no es un JSON válido, continuando como texto plano: {e}")
     medical_record_example = medical_record_example.replace("{", "{{")
     medical_record_example = medical_record_example.replace("}", "}}")
     
     try:
-        medical_record_format = json.dumps(medical_record_format, indent=2, ensure_ascii=False)
+        medical_record_format_str = json.dumps(medical_record_format, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"Formato de historia clínica no es un JSON válido, contiunando como texto plano: {e}")
+        print(f"Formato de historia clínica no es un JSON válido, continuando como texto plano: {e}")
+        medical_record_format_str = str(medical_record_format)
 
-    medical_record_format = medical_record_format.replace("{", "{{")
-    medical_record_format = medical_record_format.replace("}", "}}")
+    medical_record_format_str = medical_record_format_str.replace("{", "{{")
+    medical_record_format_str = medical_record_format_str.replace("}", "}}")
     
-    formatted_prompt = SYSTEM_PROMPT.format(temporal_context=temporal_context, medical_record_example=medical_record_example, medical_record_format=medical_record_format)
-
-    completion = client.responses.create(
-        model="gpt-5",
-        reasoning={"effort": "minimal"},
-        input=[
-            {
-                "role": "system",
-                "content": formatted_prompt,
-            },
-            {
-                "role": "user",
-                "content": (
-                    transcription
-                ),
-            },
-        ],
-        text={"format": {"type": "json_object"}},
-    )
+    formatted_prompt = SYSTEM_PROMPT.format(temporal_context=temporal_context, medical_record_example=medical_record_example, medical_record_format=medical_record_format_str)
+    prompt = f"""
+    {formatted_prompt}
+    TRANSCRIPCIÓN:
+    {transcription}
+    """
+    data = generate_gemini_response(prompt) 
     
-    data = json.loads(completion.output[1].content[0].text,
-                      object_pairs_hook=dict)
-
-    # Extraer el orden de campos del formato del médico y reordenar
-    field_order = extract_field_order(medical_record_format)
+    # Reordenar campos según el formato del médico
     if field_order:
         print(f"Reordering fields according to doctor's format: {field_order}")
         data = reorder_medical_record(data, field_order)
     else:
-        print("Warning: Could not extract field order, keeping GPT-5 output order")
-
+        print("Warning: Could not extract field order, keeping original order")
     return data
 
 
