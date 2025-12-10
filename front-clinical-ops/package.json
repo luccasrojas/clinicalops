@@ -41,7 +41,7 @@
     "lodash.isequal": "^4.5.0",
     "lucide-react": "^0.548.0",
     "motion": "^12.23.24",
-    "next": "16.0.0",
+    "next": "16.0.7",
     "prosemirror-state": "^1.4.4",
     "prosemirror-view": "^1.41.3",
     "react": "19.2.0",
