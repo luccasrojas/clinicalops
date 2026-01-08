@@ -198,7 +198,10 @@ def lambda_handler(event, context):
             body.get('medical_record_example') or
             CLINICAL_NOTE_EXAMPLE
         )
-        medical_record_format = body.get('medical_record_format', DEFAULT_MEDICAL_RECORD_FORMAT)
+        medical_record_format = (
+            body.get('medical_record_format') or
+            DEFAULT_MEDICAL_RECORD_FORMAT
+        )
 
         medical_record = generate_medical_record(transcription, medical_record_example, medical_record_format)
 

@@ -94,7 +94,7 @@ def lambda_handler(event, context):
         example_history_text = body.get('exampleHistory')
 
         # Validate required fields
-        if not all([doctor_id, email, name, family_name, specialty, medical_registry, example_history_text]):
+        if not all([doctor_id, email, name, family_name, specialty, medical_registry]):
             return {
                 'statusCode': 400,
                 'headers': {
@@ -102,29 +102,34 @@ def lambda_handler(event, context):
                     'Access-Control-Allow-Origin': '*'
                 },
                 'body': json.dumps({
-                    'error': 'All fields are required: doctorID, email, name, familyName, specialty, medicalRegistry, exampleHistory'
+                    'error': 'All fields are required: doctorID, email, name, familyName, specialty, medicalRegistry'
                 })
             }
 
-        # Validate example history has minimum length
-        if len(example_history_text.strip()) < 100:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    'error': 'Example clinical history must be at least 100 characters long'
-                })
-            }
+        should_extract_format = isinstance(example_history_text, str) and len(example_history_text.strip()) > 0
 
-        # Process example history with extract_format lambda
-        print(f"Processing example history for doctor {doctor_id}")
-        structured_history = invoke_extract_format_lambda(example_history_text)
+        structured_history = None
+
+        if should_extract_format:
+            # Validate example history has minimum length
+            if len(example_history_text.strip()) < 100:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Example clinical history must be at least 100 characters long'
+                    })
+                }
+
+            # Process example history with extract_format lambda
+            print(f"Processing example history for doctor {doctor_id}")
+            structured_history = invoke_extract_format_lambda(example_history_text)
         
         # Parse the response body if it's wrapped in API Gateway format
-        if 'body' in structured_history:
+        if isinstance(structured_history, dict) and 'body' in structured_history:
             structured_history = json.loads(structured_history['body']) if isinstance(structured_history['body'], str) else structured_history['body']
 
         # Prepare doctor item for DynamoDB
@@ -136,11 +141,15 @@ def lambda_handler(event, context):
             'lastName': family_name,
             'especiality': specialty,  # Keep Spanish spelling as per requirements
             'medicalRegistry': medical_registry,
-            'medical_record_structure': json.dumps(structured_history) if isinstance(structured_history, dict) else structured_history,
-            'medical_record_example': example_history_text,
             'createdAt': context.aws_request_id if context else 'local',
             'registrationComplete': True
         }
+
+        if should_extract_format:
+            doctor_item['medical_record_structure'] = (
+                json.dumps(structured_history) if isinstance(structured_history, dict) else structured_history
+            )
+            doctor_item['medical_record_example'] = example_history_text
 
         # Save to DynamoDB
         table.put_item(Item=doctor_item)

@@ -76,17 +76,23 @@ def process_recording_sync(history_id, doctor_id, recording_url, patient_id=None
             raise Exception('Doctor not found')
 
         doctor_data = doctor_response['Item']
-        medical_record_example = doctor_data.get('medical_record_example', {})
-        medical_record_structure = doctor_data.get('medical_record_structure', {})
+        medical_record_example = doctor_data.get('medical_record_example')
+        medical_record_structure = doctor_data.get('medical_record_structure')
 
         # Step 3: Create medical record
         print("Step 3: Generating medical record with AI...")
+        create_record_body = {
+            'transcription': transcription,
+        }
+
+        if medical_record_example:
+            create_record_body['medical_record_example'] = medical_record_example
+
+        if medical_record_structure:
+            create_record_body['medical_record_format'] = medical_record_structure
+
         create_record_payload = {
-            'body': json.dumps({
-                'transcription': transcription,
-                'medical_record_example': medical_record_example,
-                'medical_record_format': medical_record_structure
-            })
+            'body': json.dumps(create_record_body)
         }
 
         create_record_response = lambda_client.invoke(
