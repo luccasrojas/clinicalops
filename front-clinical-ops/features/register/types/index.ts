@@ -21,10 +21,13 @@ export const registerStep1Schema = z.object({
 
 // Step 2: Example clinical history
 export const registerStep2Schema = z.object({
-  exampleHistory: z
-    .string()
-    .min(100, 'La historia clínica debe tener al menos 100 caracteres')
-    .max(10000, 'La historia clínica no puede exceder 10,000 caracteres'),
+  exampleHistory: z.union([
+    z.literal(''),
+    z
+      .string()
+      .min(100, 'La historia clínica debe tener al menos 100 caracteres')
+      .max(10000, 'La historia clínica no puede exceder 10,000 caracteres'),
+  ]),
 });
 
 export type RegisterStep1FormData = z.infer<typeof registerStep1Schema>;
@@ -42,5 +45,5 @@ export type RegisterStep2Data = {
   familyName: string;
   specialty: string;
   medicalRegistry: string;
-  exampleHistory: string;
+  exampleHistory?: string;
 };

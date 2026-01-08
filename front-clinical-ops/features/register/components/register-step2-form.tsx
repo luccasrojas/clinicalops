@@ -39,7 +39,7 @@ export function RegisterStep2Form() {
   });
   const characterCount = exampleHistory?.length || 0;
 
-  const onSubmit = async (data: RegisterStep2FormData) => {
+  const completeRegistration = async (exampleHistoryText: string) => {
     if (!step1Data || !doctorID) {
       setError('Datos del paso 1 no encontrados. Por favor, vuelve al paso 1.');
       return;
@@ -54,7 +54,7 @@ export function RegisterStep2Form() {
         familyName: step1Data.familyName,
         specialty: step1Data.specialty,
         medicalRegistry: step1Data.medicalRegistry,
-        exampleHistory: data.exampleHistory,
+        exampleHistory: exampleHistoryText,
       });
 
       const loginResponse = await loginMutation.mutateAsync({
@@ -82,6 +82,16 @@ export function RegisterStep2Form() {
     }
   };
 
+  const onSubmit = async (data: RegisterStep2FormData) => {
+    await completeRegistration(data.exampleHistory);
+  };
+
+  const onSkip = async () => {
+    await completeRegistration('');
+  };
+
+  const isExampleHistoryInvalid = characterCount > 0 && characterCount < 100;
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full max-w-4xl">
       <div className="space-y-4">
@@ -106,7 +116,7 @@ export function RegisterStep2Form() {
           <Label htmlFor="exampleHistory">Historia Clínica de Ejemplo</Label>
           <span
             className={`text-sm ${
-              characterCount < 100
+              isExampleHistoryInvalid
                 ? 'text-red-600'
                 : characterCount > 10000
                 ? 'text-red-600'
@@ -114,7 +124,7 @@ export function RegisterStep2Form() {
             }`}
           >
             {characterCount} / 10,000 caracteres
-            {characterCount < 100 && ` (mínimo 100)`}
+            {isExampleHistoryInvalid && ` (mínimo 100)`}
           </span>
         </div>
         <Textarea
@@ -166,8 +176,16 @@ Examen Físico: TA 150/95 mmHg, FC 95 lpm, FR 18 rpm, SpO2 96% AA..."
           Volver al Paso 1
         </Button>
         <Button
+          type="button"
+          onClick={onSkip}
+          disabled={isSubmitting}
+          className="flex-1"
+        >
+          Omitir este paso
+        </Button>
+        <Button
           type="submit"
-          disabled={isSubmitting || characterCount < 100}
+          disabled={isSubmitting || isExampleHistoryInvalid}
           className="flex-1"
         >
           {isSubmitting ? 'Completando registro...' : 'Completar Registro'}
